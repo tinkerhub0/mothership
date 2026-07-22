@@ -91,8 +91,9 @@ in
 
     networking.firewall = {
       trustedInterfaces = [ "tailscale0" ];
-      # Headscale HTTP from mesh only (not the LAN).
+      # Headscale HTTP from mesh + member bridge (guest bootstrap before mesh join).
       interfaces.tailscale0.allowedTCPPorts = [ cfg.listenPort ];
+      interfaces.br-members.allowedTCPPorts = [ cfg.listenPort ];
       allowedUDPPorts = [ config.services.tailscale.port ];
       checkReversePath = "loose";
     };

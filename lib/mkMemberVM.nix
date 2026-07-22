@@ -1,9 +1,7 @@
-# one member file → guest nixos config for microvm.vms.<name>.config
+# one member file → guest module for microvm.vms.<name>.config
 #
-# unique IP strategy:
-#   guest runs tailscaled → headscale assigns 100.64.x.x + MagicDNS
-#   <name>.mesh.tinkerhub. that is the address members use for "do whatever".
-#   host-local path is slirp (type=user) for outbound/bootstrap only.
+# unique IP: tailscaled in guest → headscale CGNAT + MagicDNS.
+# local path: tap on br-members (cloud-hypervisor has no slirp/user net).
 {
   lib,
   memberName,
@@ -17,13 +15,25 @@ let
     tiers.${tierName}
       or (throw "user-vms/${memberName}: unknown tier '${tierName}' (small|medium|large)");
 
-  keys =
-    member.keys or (throw "user-vms/${memberName}: set keys = [ \"ssh-ed25519 …\" ];");
+  keys = member.keys or (throw "user-vms/${memberName}: set keys = [ \"ssh-ed25519 …\" ];");
 
   enabled = member.enabled or true;
   github = member.github or null;
-
   emptyKeys = keys == [ ] || keys == null;
+
+  # IFNAMSIZ=15; keep tap names short + stable
+  tapId =
+    let
+      h = builtins.hashString "sha256" memberName;
+    in
+    "m${builtins.substring 0 14 h}";
+
+  mac =
+    let
+      h = builtins.hashString "sha256" memberName;
+      b = i: builtins.substring i 2 h;
+    in
+    "02:${b 0}:${b 2}:${b 4}:${b 6}:${b 8}";
 in
 {
   inherit
@@ -32,6 +42,8 @@ in
     tier
     keys
     github
+    tapId
+    mac
     ;
 
   assertions = [
@@ -44,6 +56,7 @@ in
   guest =
     {
       pkgs,
+      lib,
       ...
     }:
     {
@@ -51,6 +64,14 @@ in
         hypervisor = "cloud-hypervisor";
         vcpu = tier.vcpu;
         mem = tier.mem;
+        # readiness notify over vsock (cloud-hypervisor)
+        vsock.cid =
+          let
+            # stable 3..10002 from name hash
+            h = builtins.hashString "sha256" memberName;
+            n = lib.fromHexString (builtins.substring 0 4 h);
+          in
+          3 + (lib.mod n 10000);
 
         shares = [
           {
@@ -67,17 +88,31 @@ in
           }
         ];
 
-        # slirp outbound for bootstrap; real identity/IP is mesh (below)
         interfaces = [
           {
-            type = "user";
-            id = "vm-${memberName}";
+            type = "tap";
+            id = tapId;
+            inherit mac;
           }
         ];
       };
 
       networking.hostName = memberName;
+      networking.useNetworkd = true;
+      systemd.network.enable = true;
+
+      # DHCP from host br-members (10.42.0.1)
+      systemd.network.networks."10-eth" = {
+        matchConfig.MACAddress = mac;
+        networkConfig = {
+          DHCP = "yes";
+          IPv6AcceptRA = false;
+        };
+        dhcpV4Config.RouteMetric = 100;
+      };
+
       networking.firewall.allowedTCPPorts = [ 22 ];
+      networking.firewall.allowedUDPPorts = [ 41641 ]; # tailscale
 
       services.openssh = {
         enable = true;
@@ -96,18 +131,18 @@ in
       users.users.root.openssh.authorizedKeys.keys = keys;
       security.sudo.wheelNeedsPassword = false;
 
-      # --- unique IP ---
-      # headscale hands out CGNAT when this node joins.
-      # after join: tailscale ip -4 · ssh you@you · ssh you@you.mesh.tinkerhub
+      # unique IP lives on the mesh after join
       services.tailscale = {
         enable = true;
         openFirewall = true;
         extraUpFlags = [
+          # must match services.headscale.settings.server_url
+          # guest reaches it via default gw (br-members) → host local 100.64.0.1
+          # (mothership must already own .1 on the mesh)
           "--login-server=http://${mesh.mothershipIPv4}:8080"
           "--hostname=${memberName}"
           "--accept-dns=true"
         ];
-        # authKeyFile via sops later — first join can be operator-assisted
       };
 
       environment.systemPackages = with pkgs; [
