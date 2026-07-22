@@ -68,10 +68,10 @@ in
 
     environment.systemPackages = [ pkgs.tailscale ];
 
-    # on-box cheat sheet — full runbook: docs/SETUP.md
+    # on-box cheat sheet — read the nix + why-this-exist, not a wiki
     environment.etc."mothership/mesh-bootstrap.md".text = ''
       # mesh bootstrap // mothership
-      # if you know you know — else docs/SETUP.md §5
+      # first node only — sequential alloc, this box must own .1
 
       headscale: 0.0.0.0:${toString hsPort} (fw: lo + tailscale0)
       reserved:  ${cfg.mothershipIPv4}

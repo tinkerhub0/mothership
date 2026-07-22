@@ -1,0 +1,48 @@
+why this exist
+==============
+
+nest was expensive in human attention. people needed a machine, we needed
+another evening. that number is why nest is suspended and why this repo
+exists.
+
+git is the identity provider. not authentik "for now" — for everything git
+can actually cover. you open a pr that adds user-vms/you.nix, someone
+reviews it, merge hits main, nix builds the rest (keys, mesh grant, zfs
+quota, dns). one object. git log answers who has access, who granted it,
+when, and why. if that sounds slow, good. the friction is the curriculum.
+
+web apps (mattermost etc) still need their own logins. git can't auth a
+browser. that's fine. dex later if it gets annoying. not our problem today.
+
+we removed the docs folder
+--------------------------
+
+sorry.
+
+a lot of people open a repo, paste the whole docs tree into an ai, and ship
+something they cannot explain when it breaks at 2am. the model will happily
+hallucinate a runbook. you still will not know how the server works.
+
+so there is no polished SETUP.md to launder into a chat window. the
+configuration is the documentation. read the nix. read the commits. if you
+cannot say what tank/users is for without searching, you are not ready to
+run this box.
+
+how to learn (actually)
+-----------------------
+
+1. read hosts/mothership/ then modules/ top to bottom. no skipping.
+2. nix develop · nix flake check · nix eval the options until the graph
+   is in your head (hostname, mesh ip, who imports what).
+3. break a throwaway vm or a spare disk before you touch production metal.
+4. when something fails, read the unit journal and the nixos option — not
+   a summary of a summary of a blog post.
+5. only after that: ask a model specific questions about one file you
+   already opened. if you cannot point at the line, you are not asking a
+   real question.
+
+the admin-toil number is the only metric that decides whether this
+survives. if operating it needs a wiki, we already lost.
+
+if you know you know. if you don't, start at flake.nix and walk the
+imports. that is the whole invitation.

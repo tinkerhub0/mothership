@@ -68,17 +68,14 @@
             shellHook = ''
               cat <<'EOF'
               mothership // operator shell
-              ───────────────────────────
-              map:     docs/MAIN.md
-              runbook: docs/SETUP.md
+              read why-this-exist first.
 
               nix eval .#nixosConfigurations.mothership.config.networking.hostName
               nix eval .#nixosConfigurations.mothership.config.mothership.mesh.mothershipIPv4
               nix flake check
               nixfmt .
 
-              linux box only: full rebuild · headscale · tailscale
-              if you know you know
+              full rebuild / headscale / tailscale: linux box only
               EOF
             '';
           };

@@ -1,7 +1,6 @@
 # disko — single disk, ESP + ZFS root, pool tank.
 # resolve order: mothership.diskDevice → facter.json first disk → /dev/sda fallback (eval only).
 # facter ON THE BOX: ./scripts/capture-hardware.sh — do not format on fallback.
-# see docs/SETUP.md
 {
   config,
   lib,
@@ -68,7 +67,7 @@ in
       mothership: disk fell back to ${fallback} (eval-only).
       run ./scripts/capture-hardware.sh on the box and commit facter.json,
       or pin mothership.diskDevice = "/dev/disk/by-id/...".
-      do not disko-format on fallback. docs/SETUP.md.
+      do not disko-format on fallback.
     '';
 
     disko.devices = {
