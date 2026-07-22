@@ -11,6 +11,7 @@
     ../../modules/tools.nix
     ../../modules/deck
     ../../modules/mesh
+    ../../modules/microvms
   ];
 
   # frozen at first ZFS pool create. change later = import pain.
@@ -25,6 +26,9 @@
     baseDomain = "mesh.tinkerhub";
     mothershipIPv4 = "100.64.0.1";
   };
+
+  # members: drop files in user-vms/ (see scripts/signup). empty = no guests yet.
+  mothership.microvms.enable = true;
 
   # frozen hardware scan — generate ON THE BOX, commit the JSON:
   #   ./scripts/capture-hardware.sh

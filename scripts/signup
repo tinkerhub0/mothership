@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# signup — write user-vms/<name>.nix for a PR. does NOT provision by itself.
+# git is the IdP. this script is a typewriter, not a control plane.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$repo_root"
+
+usage() {
+  cat <<'EOF'
+usage: scripts/signup --name <user> --key <ssh-ed25519-A…> [--tier small|medium|large] [--github <handle>]
+
+writes user-vms/<name>.nix then tells you to open a PR.
+nothing is created on the host until that PR merges and the box rebuilds.
+EOF
+  exit 1
+}
+
+name=""
+key=""
+tier="small"
+github=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name) name="${2:-}"; shift 2 ;;
+    --key) key="${2:-}"; shift 2 ;;
+    --tier) tier="${2:-}"; shift 2 ;;
+    --github) github="${2:-}"; shift 2 ;;
+    -h|--help) usage ;;
+    *) echo "unknown arg: $1" >&2; usage ;;
+  esac
+done
+
+[[ -n "$name" && -n "$key" ]] || usage
+
+if [[ ! "$name" =~ ^[a-z][a-z0-9-]{1,15}$ ]]; then
+  echo "bad name: '$name' (want ^[a-z][a-z0-9-]{1,15}$)" >&2
+  exit 1
+fi
+case "$tier" in small|medium|large) ;; *)
+  echo "bad tier: $tier" >&2; exit 1 ;;
+esac
+
+out="user-vms/${name}.nix"
+if [[ -e "$out" ]]; then
+  echo "already exists: $out" >&2
+  exit 1
+fi
+
+{
+  echo "# member: ${name} — provisioned only after merge to main"
+  echo "{"
+  if [[ -n "$github" ]]; then
+    echo "  github = \"${github}\";"
+  fi
+  echo "  tier = \"${tier}\";"
+  echo "  enabled = true;"
+  echo "  keys = ["
+  echo "    \"${key}\""
+  echo "  ];"
+  echo "}"
+} >"$out"
+
+cat <<EOF
+wrote ${out}
+
+next:
+  git checkout -b member/${name}
+  git add ${out}
+  git commit -m "member: add ${name} (${tier})"
+  git push -u origin HEAD
+  # open PR → review → merge → mothership rebuild → microvm@${name}
+
+mesh (after the guest is up + joined headscale):
+  ssh ${name}@${name}
+  # or: ssh ${name}@${name}.mesh.tinkerhub
+  # unique IP: whatever headscale assigned (tailscale ip -4 inside the guest)
+
+this script does not call the server. on purpose.
+EOF

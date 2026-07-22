@@ -11,6 +11,9 @@
     disko.inputs.nixpkgs.follows = "nixpkgs";
 
     nixos-facter-modules.url = "github:numtide/nixos-facter-modules";
+
+    microvm.url = "github:microvm-nix/microvm.nix";
+    microvm.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -20,6 +23,7 @@
       srvos,
       disko,
       nixos-facter-modules,
+      microvm,
       ...
     }:
     let
@@ -34,16 +38,16 @@
     {
       nixosConfigurations.mothership = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
+        specialArgs = { inherit self; };
         modules = [
           srvos.nixosModules.server
           disko.nixosModules.disko
           nixos-facter-modules.nixosModules.facter
+          microvm.nixosModules.host
           ./hosts/mothership
         ];
       };
 
-      # operator surface — eval/format on any host; mesh CLIs on Linux only
-      #   nix develop
       devShells = forAllSystems (
         system:
         let
@@ -73,9 +77,9 @@
               nix eval .#nixosConfigurations.mothership.config.networking.hostName
               nix eval .#nixosConfigurations.mothership.config.mothership.mesh.mothershipIPv4
               nix flake check
-              nixfmt .
+              scripts/signup --help
 
-              full rebuild / headscale / tailscale: linux box only
+              full rebuild / microvms / headscale: linux box only
               EOF
             '';
           };
@@ -99,6 +103,10 @@
           '';
           headscale-enabled = pkgs.runCommand "check-headscale" { } ''
             test "${if host.services.headscale.enable then "true" else "false"}" = "true"
+            touch $out
+          '';
+          microvms-enabled = pkgs.runCommand "check-microvms" { } ''
+            test "${if host.mothership.microvms.enable then "true" else "false"}" = "true"
             touch $out
           '';
         }

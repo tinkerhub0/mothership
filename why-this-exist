@@ -6,10 +6,15 @@ someone to ssh in and click around. the metric is admin toil: how many
 times a human has to touch the box per member. target is one review.
 
 git is the identity provider. not authentik "for now" — for everything git
-can actually cover. you open a pr that adds user-vms/you.nix, someone
-reviews it, merge hits main, nix builds the rest (keys, mesh grant, zfs
-quota, dns). one object. git log answers who has access, who granted it,
+can actually cover. you open a pr that adds user-vms/you.nix (or run
+scripts/signup to write that file), someone reviews it, merge hits main,
+nix builds the rest: microvm guest, ssh keys, zfs dataset + quota, mesh
+join path. one object. git log answers who has access, who granted it,
 when, and why. if that sounds slow, good. the friction is the curriculum.
+
+each member gets a real VM (microvm.nix), not a shared unix account. unique
+address is a headscale/tailscale IP inside the guest — not a port on the
+host. you do whatever you want in your kernel; the host only sees a guest.
 
 web apps (mattermost etc) still need their own logins. git can't auth a
 browser. that's fine. dex later if it gets annoying. not our problem today.
