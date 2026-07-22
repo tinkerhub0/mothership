@@ -1,9 +1,9 @@
 why this exist
 ==============
 
-nest was expensive in human attention. people needed a machine, we needed
-another evening. that number is why nest is suspended and why this repo
-exists.
+this is a machine people can get by opening a pr, not by waiting on
+someone to ssh in and click around. the metric is admin toil: how many
+times a human has to touch the box per member. target is one review.
 
 git is the identity provider. not authentik "for now" — for everything git
 can actually cover. you open a pr that adds user-vms/you.nix, someone
@@ -41,8 +41,5 @@ how to learn (actually)
    already opened. if you cannot point at the line, you are not asking a
    real question.
 
-the admin-toil number is the only metric that decides whether this
-survives. if operating it needs a wiki, we already lost.
-
-if you know you know. if you don't, start at flake.nix and walk the
-imports. that is the whole invitation.
+if operating this needs a wiki, we already lost. start at flake.nix and
+walk the imports. that is the whole invitation.
