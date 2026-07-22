@@ -1,13 +1,7 @@
-# Single disk: ESP + ZFS root (pool tank).
-#
-# Device resolution order:
-#   1. mothership.diskDevice  (explicit pin in default.nix)
-#   2. first whole disk in ./facter.json  (autodetect)
-#   3. PENDING placeholder — system build asserts until 1 or 2 exists
-#
-# facter.json is produced ON THE SERVER (not your laptop):
-#   ./scripts/capture-hardware.sh
-#   # or: sudo nix run github:nix-community/nixos-facter -- -o hosts/mothership/facter.json
+# disko — single disk, ESP + ZFS root, pool tank.
+# resolve order: mothership.diskDevice → facter.json first disk → /dev/sda fallback (eval only).
+# facter ON THE BOX: ./scripts/capture-hardware.sh — do not format on fallback.
+# see docs/SETUP.md
 {
   config,
   lib,
@@ -71,10 +65,10 @@ in
     boot.zfs.forceImportRoot = false;
 
     warnings = lib.optional usingFallback ''
-      mothership: disk device fell back to ${fallback}.
-      On the server run ./scripts/capture-hardware.sh and commit facter.json,
-      or set mothership.diskDevice = "/dev/disk/by-id/...";
-      Do not disko-format until one of those is set.
+      mothership: disk fell back to ${fallback} (eval-only).
+      run ./scripts/capture-hardware.sh on the box and commit facter.json,
+      or pin mothership.diskDevice = "/dev/disk/by-id/...".
+      do not disko-format on fallback. docs/SETUP.md.
     '';
 
     disko.devices = {

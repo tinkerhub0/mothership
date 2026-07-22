@@ -1,5 +1,5 @@
-# Mesh plane: Headscale control + host Tailscale client.
-# Outside git-as-IdP for web apps; *is* the data plane for member SSH later.
+# mesh — Headscale control plane + host tailscaled.
+# data plane for later member SSH. not deck auth. not the IdP (git is).
 {
   imports = [
     ./headscale.nix

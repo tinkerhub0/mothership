@@ -1,4 +1,4 @@
-# Host Tailscale client: joins local Headscale, pins hostname, serves control plane.
+# tailscale — host client joins local headscale, pins hostname, serves control plane.
 {
   config,
   lib,
@@ -68,47 +68,36 @@ in
 
     environment.systemPackages = [ pkgs.tailscale ];
 
-    # Operator helper: print mesh identity + how to join.
+    # on-box cheat sheet — full runbook: docs/SETUP.md
     environment.etc."mothership/mesh-bootstrap.md".text = ''
-      # Mesh bootstrap (mothership)
+      # mesh bootstrap // mothership
+      # if you know you know — else docs/SETUP.md §5
 
-      Headscale listens on 0.0.0.0:${toString hsPort} (firewall: lo + tailscale0).
-      Reserved mothership IP: ${cfg.mothershipIPv4}
-      MagicDNS base: ${cfg.baseDomain}
-      Canonical login-server: http://${cfg.mothershipIPv4}:${toString hsPort}
-      Serve (after node up): https://${config.networking.hostName}.${cfg.baseDomain}
+      headscale: 0.0.0.0:${toString hsPort} (fw: lo + tailscale0)
+      reserved:  ${cfg.mothershipIPv4}
+      MagicDNS:  ${cfg.baseDomain}
+      login:     http://${cfg.mothershipIPv4}:${toString hsPort}
+      serve:     https://${config.networking.hostName}.${cfg.baseDomain}
 
-      ## Once on the box
+      ## first node (this box) — must own .1
 
       ```
-      # 1. Create the headscale user (namespace for nodes)
       sudo -u headscale headscale users create tinkerhub
-
-      # 2. Preauth key for this host (reusable=false, ephemeral=false)
       sudo -u headscale headscale preauthkeys create -u tinkerhub --reusable --expiration 24h
-
-      # 3. Join (or rely on authKeyFile + extraUpFlags once sops lands)
       sudo tailscale up \
         --login-server=${loginLocal} \
         --authkey=<key> \
         --hostname=${config.networking.hostName} \
         --accept-dns=true \
         --advertise-tags=tag:mothership
-
-      # 4. Confirm static-ish address (sequential → first node = ${cfg.mothershipIPv4})
-      tailscale ip -4
-      sudo -u headscale headscale nodes list
-
-      # 5. Serve status
+      tailscale ip -4   # expect ${cfg.mothershipIPv4}
       tailscale serve status
       ```
 
-      ## Other machines
+      ## everyone else (after .1 is taken)
 
       ```
       tailscale up --login-server=http://${cfg.mothershipIPv4}:${toString hsPort} --authkey=<key>
-      # or, once on mesh and DNS works:
-      # tailscale up --login-server=https://${config.networking.hostName}.${cfg.baseDomain} --authkey=<key>
       ```
     '';
   };

@@ -1,4 +1,5 @@
-# Operator ergonomics on the host shell. Not member tooling, not deck services.
+# tools — operator surface on the host shell.
+# not member tooling. not deck services. htop is not a product.
 { pkgs, ... }:
 {
   environment.systemPackages = with pkgs; [

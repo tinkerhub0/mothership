@@ -1,9 +1,10 @@
-# Deck systems — shared hub services that run on the mothership.
+# deck — shared hub services on the mothership.
 #
-# Not member VMs (user-vms/). Not host identity (hosts/mothership/).
-# Outside the git-as-IdP chain: web logins stay local until Dex bridges GitHub.
+# not member VMs (user-vms/). not host identity (hosts/mothership/).
+# outside the git-as-IdP chain: web logins stay local until Dex → GitHub.
 #
-# One file per service. Enable only through mothership.deck.*.enable.
+# one file per service. enable only via mothership.deck.*.enable.
+# if you know you know.
 {
   imports = [
     ./mattermost.nix

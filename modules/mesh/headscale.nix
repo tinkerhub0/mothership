@@ -1,8 +1,6 @@
-# Headscale coordination server.
-#
-# Canonical login URL uses the mothership's reserved mesh IP (stable, no
-# MagicDNS chicken-egg). Tailscale serve (tailscale.nix) also fronts it at
-# https://mothership.<baseDomain> for clients already on the mesh.
+# headscale — coordination server.
+# canonical login = static mesh IP (no MagicDNS chicken-egg).
+# serve (tailscale.nix) fronts HTTPS at mothership.<baseDomain> once you're on-mesh.
 {
   config,
   lib,

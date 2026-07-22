@@ -1,4 +1,5 @@
-# Shared server policy on top of srvos. Not host disks, not deck services.
+# base — server policy on top of srvos.
+# not disks. not deck. not mesh. just "how we run boxes".
 { lib, ... }:
 {
   nix = {
@@ -20,7 +21,7 @@
     };
   };
 
-  # Keep previous generations bootable (mitigates "evals fine, bricks host").
+  # previous gens stay bootable — mitigates "evals fine, host is toast".
   boot.loader.systemd-boot.configurationLimit = 10;
 
   services.openssh = {

@@ -1,4 +1,5 @@
-# Machine identity only. Capabilities live under ../../modules.
+# hosts/mothership — identity of this metal.
+# capabilities live under ../../modules. do not dump service logic here.
 {
   lib,
   ...
@@ -12,11 +13,11 @@
     ../../modules/mesh
   ];
 
-  # Stable 8-hex hostId required by ZFS. Do not change after first pool create.
+  # frozen at first ZFS pool create. change later = import pain.
   networking.hostId = "a7c3e91b";
   networking.hostName = "mothership";
 
-  # LAN for install/bootstrap. Mesh addresses come from Headscale (100.64.0.1).
+  # LAN for install/bootstrap. mesh addressing is Headscale's job (100.64.0.1).
   networking.useDHCP = lib.mkDefault true;
 
   mothership.mesh = {
@@ -25,10 +26,9 @@
     mothershipIPv4 = "100.64.0.1";
   };
 
-  # Hardware inventory snapshot (drivers + disk autodetect for disko).
-  # Generate ON THE SERVER, commit the file into this repo:
-  #   sudo nix run github:nix-community/nixos-facter -- -o hosts/mothership/facter.json
-  # Optional override if autodetect picks the wrong disk:
+  # frozen hardware scan — generate ON THE BOX, commit the JSON:
+  #   ./scripts/capture-hardware.sh
+  # pin if autodetect is wrong:
   #   mothership.diskDevice = "/dev/disk/by-id/nvme-...";
   hardware.facter.reportPath = lib.mkIf (builtins.pathExists ./facter.json) ./facter.json;
 

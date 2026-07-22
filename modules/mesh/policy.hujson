@@ -1,4 +1,5 @@
-// Phase-1 open policy. Replace with per-user grants from user-vms later.
+// phase-1 open policy — replace with per-user grants from user-vms later.
+// wide open on purpose. tighten when members exist. if you know you know.
 {
   // Tag for the mothership host (advertised via --advertise-tags).
   "tagOwners": {

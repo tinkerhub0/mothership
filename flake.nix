@@ -1,5 +1,5 @@
 {
-  description = "tinkerhub mothership — declarative host; git is the identity provider";
+  description = "mothership — git is the IdP; Nix is the compiler; if you know you know";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -42,7 +42,7 @@
         ];
       };
 
-      # Local operator shell — works on this Mac and on the server.
+      # operator surface — eval/format on any host; mesh CLIs on Linux only
       #   nix develop
       devShells = forAllSystems (
         system:
@@ -67,23 +67,24 @@
 
             shellHook = ''
               cat <<'EOF'
-              mothership dev shell
-              ────────────────────
-              Eval host name:   nix eval .#nixosConfigurations.mothership.config.networking.hostName
-              Eval mesh IP:     nix eval .#nixosConfigurations.mothership.config.mothership.mesh.mothershipIPv4
-              Eval headscale:   nix eval .#nixosConfigurations.mothership.config.services.headscale.enable
-              Format:           nixfmt .
-              Checks:           nix flake check
-              Hardware (server): ./scripts/capture-hardware.sh
+              mothership // operator shell
+              ───────────────────────────
+              map:     docs/MAIN.md
+              runbook: docs/SETUP.md
 
-              Full NixOS build needs x86_64-linux (the box or a remote builder).
+              nix eval .#nixosConfigurations.mothership.config.networking.hostName
+              nix eval .#nixosConfigurations.mothership.config.mothership.mesh.mothershipIPv4
+              nix flake check
+              nixfmt .
+
+              linux box only: full rebuild · headscale · tailscale
+              if you know you know
               EOF
             '';
           };
         }
       );
 
-      # Lightweight checks that don't need a full system build.
       checks = forAllSystems (
         system:
         let

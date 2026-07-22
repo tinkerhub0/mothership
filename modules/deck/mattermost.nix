@@ -1,4 +1,4 @@
-# Stub: wire service package/OCI/microVM in a later phase. Off by default.
+# mattermost — deck stub. off by default. local accounts until Dex.
 {
   config,
   lib,
