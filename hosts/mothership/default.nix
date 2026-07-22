@@ -8,6 +8,7 @@
   imports = [
     ./disko.nix
     ../../modules/base.nix
+    ../../modules/admins.nix
     ../../modules/tools.nix
     ../../modules/deck
     ../../modules/mesh
@@ -39,9 +40,7 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  users.users.root.openssh.authorizedKeys.keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPgJj9GEaxD16KIwrB0M9qxeaFy33iCuCo99Jm/dxbkO terminal-shop"
-  ];
+  # admin keys: modules/admins.nix (root + mothership user)
 
   system.stateVersion = "25.05";
 }
