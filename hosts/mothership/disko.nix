@@ -39,7 +39,9 @@ let
       else
         (builtins.head candidates).unix_device_name;
 
-  pending = "/dev/disk/by-id/PENDING-run-scripts-capture-hardware";
+  # Fallback only so pure eval / flake check work before facter exists.
+  # Never format a real box without facter or an explicit by-id pin.
+  fallback = "/dev/sda";
 
   resolved =
     if config.mothership.diskDevice != null then
@@ -47,7 +49,10 @@ let
     else if fromFacter != null then
       fromFacter
     else
-      pending;
+      fallback;
+
+  usingFallback =
+    config.mothership.diskDevice == null && fromFacter == null;
 in
 {
   options.mothership.diskDevice = lib.mkOption {
@@ -55,27 +60,22 @@ in
     default = null;
     example = "/dev/disk/by-id/nvme-Samsung_...";
     description = ''
-      Install target disk. null = autodetect from facter.json (first whole disk).
+      Install target disk. null = autodetect from facter.json (first whole disk),
+      else temporary fallback /dev/sda for eval only.
       Prefer /dev/disk/by-id/... when setting explicitly.
     '';
   };
 
   config = {
-    assertions = [
-      {
-        assertion = resolved != pending;
-        message = ''
-          mothership: no disk device resolved.
+    # Prefer explicit import policy on a single-disk root pool.
+    boot.zfs.forceImportRoot = false;
 
-          On the server (once):
-            ./scripts/capture-hardware.sh
-          then commit hosts/mothership/facter.json
-
-          Or pin explicitly in hosts/mothership/default.nix:
-            mothership.diskDevice = "/dev/disk/by-id/nvme-...";
-        '';
-      }
-    ];
+    warnings = lib.optional usingFallback ''
+      mothership: disk device fell back to ${fallback}.
+      On the server run ./scripts/capture-hardware.sh and commit facter.json,
+      or set mothership.diskDevice = "/dev/disk/by-id/...";
+      Do not disko-format until one of those is set.
+    '';
 
     disko.devices = {
       disk.main = {

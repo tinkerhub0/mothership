@@ -1,0 +1,16 @@
+// Phase-1 open policy. Replace with per-user grants from user-vms later.
+{
+  // Tag for the mothership host (advertised via --advertise-tags).
+  "tagOwners": {
+    "tag:mothership": ["tinkerhub"],
+  },
+
+  "acls": [
+    // Everyone can talk to everyone for bring-up.
+    {
+      "action": "accept",
+      "src": ["*"],
+      "dst": ["*:*"],
+    },
+  ],
+}

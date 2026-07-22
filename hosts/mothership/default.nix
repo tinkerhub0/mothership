@@ -9,14 +9,21 @@
     ../../modules/base.nix
     ../../modules/tools.nix
     ../../modules/deck
+    ../../modules/mesh
   ];
 
   # Stable 8-hex hostId required by ZFS. Do not change after first pool create.
   networking.hostId = "a7c3e91b";
   networking.hostName = "mothership";
 
-  # Phase 1: get on the wire. Mesh MagicDNS lands with Headscale later.
+  # LAN for install/bootstrap. Mesh addresses come from Headscale (100.64.0.1).
   networking.useDHCP = lib.mkDefault true;
+
+  mothership.mesh = {
+    enable = true;
+    baseDomain = "mesh.tinkerhub";
+    mothershipIPv4 = "100.64.0.1";
+  };
 
   # Hardware inventory snapshot (drivers + disk autodetect for disko).
   # Generate ON THE SERVER, commit the file into this repo:
