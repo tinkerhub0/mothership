@@ -17,8 +17,8 @@ in
 
     hostname = lib.mkOption {
       type = lib.types.str;
-      default = "hs.cf.tharavad.xyz";
-      description = "Public hostname under CF-delegated subzone (e.g. cf.tharavad.xyz). HTTPS via CF edge.";
+      default = "hs.tharavad.xyz";
+      description = "Public hostname in a Cloudflare zone (apex on free plan; subdomain-as-zone needs Enterprise).";
     };
 
     # file contents: single line token from Zero Trust → Tunnels → Install connector
