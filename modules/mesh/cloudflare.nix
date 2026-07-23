@@ -17,7 +17,7 @@ in
 
     hostname = lib.mkOption {
       type = lib.types.str;
-      default = "tinkerhub-mesh.uk";
+      default = "not-your-isp.uk";
       description = "Public hostname in a Cloudflare zone (cheap throwaway domain; apex is fine).";
     };
 

@@ -53,7 +53,7 @@ in
     # Change this one string if you pick a different name.
     cloudflare = {
       enable = true;
-      hostname = "tinkerhub-mesh.uk"; # CF Registrar ~$5/yr; apex = Headscale login URL
+      hostname = "not-your-isp.uk"; # joke domain, CF Registrar ~$5/yr; Headscale login URL
       tokenFile = "/var/lib/cloudflared/tunnel.token";
     };
   };
