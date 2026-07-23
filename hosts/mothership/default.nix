@@ -48,11 +48,12 @@ in
     enable = true;
     baseDomain = "mesh.tinkerhub";
     mothershipIPv4 = "100.64.0.1";
-    # public control plane via Cloudflare Tunnel (see cloudflare.nix)
-    # serverUrl overridden to https://hs.tharavad.xyz when tunnel enable = true
+    # public control plane via Cloudflare Tunnel under delegated subzone
+    # DNS: tharavad.xyz (Hetzner/octoDNS) → NS cf → Cloudflare
+    # public name: https://hs.cf.tharavad.xyz
     cloudflare = {
       enable = true;
-      hostname = "hs.tharavad.xyz";
+      hostname = "hs.cf.tharavad.xyz";
       tokenFile = "/var/lib/cloudflared/tunnel.token";
     };
   };
