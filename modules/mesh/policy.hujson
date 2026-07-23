@@ -1,13 +1,7 @@
-// phase-1 open policy — replace with per-user grants from user-vms later.
-// wide open on purpose. tighten when members exist. if you know you know.
+// headscale v0.2x+ ACL (HuJSON). owners must be "user:<name>" or "group:<name>".
+// phase-1: open mesh. tighten when members exist.
 {
-  // Tag for the mothership host (advertised via --advertise-tags).
-  "tagOwners": {
-    "tag:mothership": ["tinkerhub"],
-  },
-
   "acls": [
-    // Everyone can talk to everyone for bring-up.
     {
       "action": "accept",
       "src": ["*"],

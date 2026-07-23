@@ -15,22 +15,19 @@ in
     services.tailscale = {
       enable = true;
       openFirewall = true;
-      # Server-ish: may advertise routes later (exit node / subnet).
       useRoutingFeatures = "server";
-      # Optional: path to a preauth key (sops later). When set, autoconnect runs.
-      # authKeyFile = config.sops.secrets."tailscale/preauth".path;
+      # authKeyFile later via sops
       extraUpFlags = [
         "--login-server=${loginLocal}"
         "--hostname=${config.networking.hostName}"
         "--accept-dns=true"
-        "--advertise-tags=tag:mothership"
       ];
     };
 
-    # Front Headscale on the node's MagicDNS name (HTTPS, cert via tailscaled).
-    # Canonical login for automation remains http://100.64.0.1:8080 (static IP).
+    # serve only works after this node has joined the mesh.
+    # must not fail switch — exit 0 if not logged in yet.
     systemd.services.tailscale-serve-headscale = {
-      description = "tailscale serve → local Headscale";
+      description = "tailscale serve → local Headscale (after mesh join)";
       after = [
         "tailscaled.service"
         "headscale.service"
@@ -41,26 +38,29 @@ in
         "headscale.service"
         "network-online.target"
       ];
-      requires = [ "tailscaled.service" ];
       wantedBy = [ "multi-user.target" ];
       path = [
         pkgs.tailscale
         pkgs.coreutils
+        pkgs.gnugrep
       ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
+        # never fail activation before first join
+        SuccessExitStatus = "0 1";
         ExecStart = pkgs.writeShellScript "tailscale-serve-headscale" ''
-          set -euo pipefail
-          for i in $(seq 1 60); do
+          set -u
+          for i in $(seq 1 30); do
             if tailscale status --json 2>/dev/null | grep -q '"BackendState": "Running"'; then
-              break
+              tailscale serve reset || true
+              tailscale serve --bg --https=443 http://127.0.0.1:${toString hsPort} && exit 0
+              exit 0
             fi
             sleep 1
           done
-          tailscale serve reset || true
-          # https://<hostname>.<baseDomain>/ → Headscale
-          tailscale serve --bg --https=443 http://127.0.0.1:${toString hsPort}
+          echo "tailscale not joined yet — skip serve (run mesh bootstrap, then: systemctl restart tailscale-serve-headscale)"
+          exit 0
         '';
         ExecStop = "${pkgs.tailscale}/bin/tailscale serve reset";
       };
@@ -68,36 +68,29 @@ in
 
     environment.systemPackages = [ pkgs.tailscale ];
 
-    # on-box cheat sheet — read the nix + why-this-exist, not a wiki
     environment.etc."mothership/mesh-bootstrap.md".text = ''
       # mesh bootstrap // mothership
       # first node only — sequential alloc, this box must own .1
 
-      headscale: 0.0.0.0:${toString hsPort} (fw: lo + tailscale0)
+      headscale: 0.0.0.0:${toString hsPort}
       reserved:  ${cfg.mothershipIPv4}
       MagicDNS:  ${cfg.baseDomain}
       login:     http://${cfg.mothershipIPv4}:${toString hsPort}
-      serve:     https://${config.networking.hostName}.${cfg.baseDomain}
 
-      ## first node (this box) — must own .1
+      ## once headscale is active
 
       ```
       sudo -u headscale headscale users create tinkerhub
-      sudo -u headscale headscale preauthkeys create -u tinkerhub --reusable --expiration 24h
+      KEY=$(sudo -u headscale headscale preauthkeys create -u tinkerhub --reusable --expiration 24h)
+      echo "$KEY"
       sudo tailscale up \
         --login-server=${loginLocal} \
-        --authkey=<key> \
+        --authkey="$KEY" \
         --hostname=${config.networking.hostName} \
-        --accept-dns=true \
-        --advertise-tags=tag:mothership
+        --accept-dns=true
       tailscale ip -4   # expect ${cfg.mothershipIPv4}
+      sudo systemctl restart tailscale-serve-headscale
       tailscale serve status
-      ```
-
-      ## everyone else (after .1 is taken)
-
-      ```
-      tailscale up --login-server=http://${cfg.mothershipIPv4}:${toString hsPort} --authkey=<key>
       ```
     '';
   };
