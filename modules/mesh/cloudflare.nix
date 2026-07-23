@@ -17,8 +17,8 @@ in
 
     hostname = lib.mkOption {
       type = lib.types.str;
-      default = "hs.tharavad.xyz";
-      description = "Public hostname in a Cloudflare zone (apex on free plan; subdomain-as-zone needs Enterprise).";
+      default = "tinkerhub-mesh.uk";
+      description = "Public hostname in a Cloudflare zone (cheap throwaway domain; apex is fine).";
     };
 
     # file contents: single line token from Zero Trust → Tunnels → Install connector
