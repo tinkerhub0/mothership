@@ -77,17 +77,19 @@ in
       MagicDNS:  ${cfg.baseDomain}
       login:     http://${cfg.mothershipIPv4}:${toString hsPort}
 
-      ## once headscale is active
+      ## once headscale is active (v0.29+: -u is numeric user ID)
 
       ```
-      sudo -u headscale headscale users create tinkerhub
-      KEY=$(sudo -u headscale headscale preauthkeys create -u tinkerhub --reusable --expiration 24h)
+      sudo -u headscale headscale users create tinkerhub   # once
+      sudo -u headscale headscale users list                 # note ID column
+      KEY=$(sudo -u headscale headscale preauthkeys create -u 1 --reusable --expiration 24h)
       echo "$KEY"
       sudo tailscale up \
         --login-server=${loginLocal} \
         --authkey="$KEY" \
         --hostname=${config.networking.hostName} \
-        --accept-dns=true
+        --accept-dns=true \
+        --reset
       tailscale ip -4   # expect ${cfg.mothershipIPv4}
       sudo systemctl restart tailscale-serve-headscale
       tailscale serve status
