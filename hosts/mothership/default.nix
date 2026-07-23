@@ -48,14 +48,12 @@ in
     enable = true;
     baseDomain = "mesh.tinkerhub";
     mothershipIPv4 = "100.64.0.1";
-    # public control plane via Cloudflare Tunnel
-    # Free CF: add apex tharavad.xyz as a zone (not cf.tharavad.xyz — Enterprise only).
-    # Then Tunnel public hostname hs.tharavad.xyz → http://127.0.0.1:8080
-    # DNS can stay gitops: point octoDNS target at Cloudflare instead of Hetzner,
-    # or let the Tunnel UI create the CNAME in the CF zone.
+    # public control plane via Cloudflare Tunnel on a dirt-cheap throwaway domain.
+    # Buy on Cloudflare Registrar (zone is already on CF). tharavad.xyz stays Hetzner.
+    # Change this one string if you pick a different name.
     cloudflare = {
       enable = true;
-      hostname = "hs.tharavad.xyz";
+      hostname = "tinkerhub-mesh.xyz"; # apex = login URL; or login.your-stupid-name.xyz
       tokenFile = "/var/lib/cloudflared/tunnel.token";
     };
   };
