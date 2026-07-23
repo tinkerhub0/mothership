@@ -1,25 +1,45 @@
 # hosts/mothership — identity of this metal.
-# capabilities live under ../../modules. do not dump service logic here.
+# capabilities live under ../../modules.
 {
   lib,
   ...
 }:
+let
+  # ═══════════════════════════════════════════════════════════
+  # STORAGE MODE — read this before every switch
+  #
+  # false (default): use hardware-configuration.nix
+  #   = installer layout (ext4/btrfs). SAFE for switch on a
+  #     normal NixOS install. Replace hardware-configuration.nix
+  #     with the copy from /etc/nixos/ on the box.
+  #
+  # true: use disko.nix (ESP + ZFS tank)
+  #   = ONLY after a clean install that was formatted with disko.
+  #   Switching this on over an installer root = boot.mount dies.
+  #   That is what bricked us last time.
+  # ═══════════════════════════════════════════════════════════
+  useDisko = false;
+in
 {
   imports = [
-    ./disko.nix
     ../../modules/base.nix
     ../../modules/admins.nix
     ../../modules/tools.nix
     ../../modules/deck
     ../../modules/mesh
     ../../modules/microvms
-  ];
+  ]
+  ++ (
+    if useDisko then
+      [ ./disko.nix ]
+    else
+      [ ./hardware-configuration.nix ]
+  );
 
-  # frozen at first ZFS pool create. change later = import pain.
+  # frozen at first ZFS pool create (only matters when useDisko = true).
   networking.hostId = "a7c3e91b";
   networking.hostName = "mothership";
 
-  # LAN for install/bootstrap. mesh addressing is Headscale's job (100.64.0.1).
   networking.useDHCP = lib.mkDefault true;
 
   mothership.mesh = {
@@ -28,19 +48,13 @@
     mothershipIPv4 = "100.64.0.1";
   };
 
-  # members: drop files in user-vms/ (see scripts/signup). empty = no guests yet.
-  mothership.microvms.enable = true;
+  # guests after host is stable
+  mothership.microvms.enable = false;
 
-  # frozen hardware scan — generate ON THE BOX, commit the JSON:
-  #   ./scripts/capture-hardware.sh
-  # pin if autodetect is wrong:
-  #   mothership.diskDevice = "/dev/disk/by-id/nvme-...";
   hardware.facter.reportPath = lib.mkIf (builtins.pathExists ./facter.json) ./facter.json;
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-
-  # admin keys: modules/admins.nix (root + mothership user)
 
   system.stateVersion = "25.05";
 }
