@@ -91,7 +91,9 @@ in
 
     networking.firewall = {
       trustedInterfaces = [ "tailscale0" ];
-      # Headscale HTTP from mesh + member bridge (guest bootstrap before mesh join).
+      # LAN clients need 8080 to join before they have a mesh IP.
+      # (only allowing on tailscale0/br-members left Mac unable to auth.)
+      allowedTCPPorts = [ cfg.listenPort ];
       interfaces.tailscale0.allowedTCPPorts = [ cfg.listenPort ];
       interfaces.br-members.allowedTCPPorts = [ cfg.listenPort ];
       allowedUDPPorts = [ config.services.tailscale.port ];
