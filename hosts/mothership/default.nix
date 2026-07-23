@@ -48,9 +48,13 @@ in
     enable = true;
     baseDomain = "mesh.tinkerhub";
     mothershipIPv4 = "100.64.0.1";
-    # WAN seen from the box (router NAT). Port-forward TCP 8080 → this host.
-    # Prefer a DNS name + HTTPS later (Caddy); IP is fine for bring-up.
-    serverUrl = "http://49.47.196.126:8080";
+    # public control plane via Cloudflare Tunnel (see cloudflare.nix)
+    # serverUrl overridden to https://hs.tharavad.xyz when tunnel enable = true
+    cloudflare = {
+      enable = true;
+      hostname = "hs.tharavad.xyz";
+      tokenFile = "/var/lib/cloudflared/tunnel.token";
+    };
   };
 
   # guests after host is stable
