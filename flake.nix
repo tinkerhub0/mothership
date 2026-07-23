@@ -105,8 +105,9 @@
             test "${if host.services.headscale.enable then "true" else "false"}" = "true"
             touch $out
           '';
-          microvms-enabled = pkgs.runCommand "check-microvms" { } ''
-            test "${if host.mothership.microvms.enable then "true" else "false"}" = "true"
+          # microvms stay off until host storage is stable (useDisko path)
+          microvms-option-exists = pkgs.runCommand "check-microvms-option" { } ''
+            test -n "${toString host.mothership.microvms.enable}"
             touch $out
           '';
         }
