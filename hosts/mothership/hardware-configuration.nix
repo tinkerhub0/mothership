@@ -1,10 +1,6 @@
-# STUB for flake check only.
-# On the server, REPLACE this file with:
-#   cp /etc/nixos/hardware-configuration.nix ~/mothership/hosts/mothership/hardware-configuration.nix
-# That file matches the REAL installer disks. Never invent mounts.
-#
-# storage.useDisko = false  → this file is used
-# storage.useDisko = true   → disko.nix (ZFS tank) — only after a disko wipe install
+# From the live box 2026-07-23 (installer layout — NOT disko/ZFS).
+# /dev/sda1 vfat boot · /dev/sda2 ext4 root (~4.6T, megaraid_sas)
+# Do not invent mounts. Re-copy from /etc/nixos/ if you reinstall.
 {
   config,
   lib,
@@ -15,25 +11,24 @@
   imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
 
   boot.initrd.availableKernelModules = [
-    "xhci_pci"
     "ahci"
-    "nvme"
+    "ehci_pci"
+    "megaraid_sas"
     "usb_storage"
+    "usbhid"
     "sd_mod"
-    "sr_mod"
   ];
   boot.initrd.kernelModules = [ ];
   boot.kernelModules = [ "kvm-intel" ];
   boot.extraModulePackages = [ ];
 
-  # Labels match a typical graphical installer. Overwrite from the box.
   fileSystems."/" = {
-    device = "/dev/disk/by-label/nixos";
+    device = "/dev/disk/by-uuid/064cd1af-6353-4026-babe-2aa6c9baea61";
     fsType = "ext4";
   };
 
   fileSystems."/boot" = {
-    device = "/dev/disk/by-label/BOOT";
+    device = "/dev/disk/by-uuid/88C1-60CA";
     fsType = "vfat";
     options = [
       "fmask=0077"
@@ -43,7 +38,6 @@
 
   swapDevices = [ ];
 
-  networking.useDHCP = lib.mkDefault true;
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
   hardware.cpu.intel.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
 }

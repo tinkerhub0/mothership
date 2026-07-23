@@ -40,6 +40,8 @@ in
   networking.hostId = "a7c3e91b";
   networking.hostName = "mothership";
 
+  # keep NetworkManager — live install uses it for eno1 DHCP.
+  networking.networkmanager.enable = true;
   networking.useDHCP = lib.mkDefault true;
 
   mothership.mesh = {
@@ -56,5 +58,6 @@ in
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  system.stateVersion = "25.05";
+  # match install (NixOS 26.05 Yarara)
+  system.stateVersion = "26.05";
 }
