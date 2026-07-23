@@ -18,9 +18,11 @@ in
       useRoutingFeatures = "server";
       # authKeyFile later via sops
       extraUpFlags = [
+        # host can always hit local headscale; remote clients use serverUrl
         "--login-server=${loginLocal}"
         "--hostname=${config.networking.hostName}"
         "--accept-dns=true"
+        "--advertise-exit-node" # optional: phone/laptop can exit via mothership
       ];
     };
 

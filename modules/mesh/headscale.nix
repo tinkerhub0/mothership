@@ -36,23 +36,31 @@ in
     listenPort = lib.mkOption {
       type = lib.types.port;
       default = 8080;
-      description = "Local Headscale HTTP port (loopback; exposed via serve + mesh IP).";
+      description = "Headscale HTTP listen port on the host.";
+    };
+
+    # MUST be reachable by every client (LAN + internet).
+    # LAN-only 100.64.0.1 / 192.168.x dies off-site.
+    # Example: "http://49.47.196.126:8080" or "https://hs.example.com"
+    serverUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "http://${cfg.mothershipIPv4}:${toString cfg.listenPort}";
+      description = ''
+        Public control-plane URL written into Headscale config (server_url).
+        Clients use the same string as --login-server.
+        For off-LAN access: public IP or DNS + router port-forward to this host.
+      '';
     };
   };
 
   config = lib.mkIf cfg.enable {
     services.headscale = {
       enable = true;
-      # All interfaces; firewall below only opens 8080 on tailscale0 (plus local).
-      # That makes http://100.64.0.1:8080 work once this node owns the static IP.
       address = "0.0.0.0";
       port = cfg.listenPort;
 
       settings = {
-        # Stable login URL (IP, not MagicDNS) — no base_domain collision.
-        # Clients: --login-server=http://100.64.0.1:8080
-        # Serve also publishes https://mothership.<baseDomain> (see tailscale.nix).
-        server_url = "http://${cfg.mothershipIPv4}:${toString cfg.listenPort}";
+        server_url = cfg.serverUrl;
 
         prefixes = {
           v4 = cfg.prefixV4;
