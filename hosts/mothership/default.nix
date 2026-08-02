@@ -67,6 +67,10 @@ in
   # private bridge for loki/grafana/mattermost/vaultwarden
   mothership.deck.network.enable = true;
 
+  # fleet monitoring on the host (native service, not a microVM)
+  # public: https://status.tharavad.xyz via edge status-proxy
+  mothership.deck.uptimeKuma.enable = true;
+
   # member VMs: user-vms/*.nix
   # public: ssh you@you.<domain> via edge bastion; mesh is internal only
   mothership.microvms.enable = true;

@@ -9,6 +9,7 @@
   imports = [
     ./network.nix
     ./mattermost.nix
+    ./uptime-kuma.nix
     # ./vaultwarden.nix
   ];
 }

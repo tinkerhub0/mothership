@@ -21,6 +21,7 @@
     ../../modules/landing.nix # tharavad.xyz Astro landing
     ../../modules/git-sync.nix # main → edge (bastion keys, publish, landing)
     ../../modules/landa-proxy.nix # landa.tharavad.xyz → control plane API
+    ../../modules/status-proxy.nix # status.tharavad.xyz → deck monitor
   ];
 
   networking.hostName = "edge";
@@ -118,6 +119,12 @@
     # no local API process; landa-back is memberPublish → alvin:8787
     manageService = false;
     apiDomain = null; # disable edge API vhost (publish owns landa-back)
+  };
+
+  # public status.tharavad.xyz → deck Uptime Kuma (mothership :9081 over WG)
+  mothership.statusProxy = {
+    enable = true;
+    domain = "status.tharavad.xyz";
   };
 
   networking.firewall.allowedTCPPorts = [

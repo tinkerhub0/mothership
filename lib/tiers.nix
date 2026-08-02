@@ -15,9 +15,4 @@
     vcpu = 4;
     refquota = "40G";
   };
-  god = {
-    mem = 30720;  
-    vcpu = 8;     
-    refquota = "1T";  
-  };
 }
