@@ -1,6 +1,6 @@
 {
   github = "decoded-cipher";
-  tier = "medium";
+  tier = "large";
   enabled = true;
 
   keys = [
