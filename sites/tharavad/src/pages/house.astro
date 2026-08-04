@@ -1,0 +1,73 @@
+---
+import Base from "../layouts/Base.astro";
+import { getCollection } from "astro:content";
+import seats from "../content/house/seats.json";
+
+const crew = (await getCollection("crew")).sort(
+  (a, b) => a.data.order - b.data.order,
+);
+const roster = [...seats].sort();
+---
+<Base title="The house" description="Who keeps the doors and who has a seat.">
+  <h1>The house</h1>
+
+  <p>
+    Not a corporate “meet the team” page. This is who holds keys and who has a
+    room. Maintainers keep the fabric standing. Residents have a guest under
+    their name. Notes authors show up when they write ->
+    <a href="/authors/">authors</a>.
+  </p>
+
+  <h2>Crew</h2>
+  <p class="note">
+    People who touch metal, edge, and the brochure. Source:
+    <code>sites/tharavad/src/content/crew/</code>.
+  </p>
+  <ul>
+    {
+      crew.map((person) => (
+        <li>
+          <strong>{person.data.name}</strong>
+          <span class="note"> · {person.data.role}</span>
+          {person.data.links.length > 0 && (
+            <span class="note">
+              {" "}
+              ·{" "}
+              {person.data.links.map((link, i) => (
+                <>
+                  {i > 0 && " · "}
+                  <a href={link.href}>{link.label}</a>
+                </>
+              ))}
+            </span>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+
+  <h2>Residents</h2>
+  <p class="note">
+    Seats from <code>user-vms/</code> (enabled members). Update
+    <code>sites/tharavad/src/content/house/seats.json</code> when someone joins
+    so the brochure matches the house. Truth for SSH is still the nix file.
+  </p>
+  <ul>
+    {
+      roster.map((name) => (
+        <li>
+          <code>{name}</code>
+          <span class="note">
+            {" "}
+            · <code>ssh {name}@{name}.tharavad.xyz</code>
+          </span>
+        </li>
+      ))
+    }
+  </ul>
+
+  <p>
+    Want a seat? <a href="/join/">Join</a>. What changed lately?
+    <a href="/log/">Ship log</a>.
+  </p>
+</Base>

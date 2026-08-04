@@ -14,7 +14,7 @@ let
   tierName = member.tier or "small";
   tier =
     tiers.${tierName}
-      or (throw "user-vms/${memberName}: unknown tier '${tierName}' (small|medium|large)");
+      or (throw "user-vms/${memberName}: unknown tier '${tierName}' (small|medium|large|god)");
 
   memberKeys = member.keys or (throw "user-vms/${memberName}: set keys = [ \"ssh-ed25519 …\" ];");
   bastionPub = import ./bastionPubKey.nix;
@@ -92,7 +92,9 @@ in
             mountPoint = "/nix/.rw-store";
             # MiB; members install tools here (nix shell / profile)
             size =
-              if tierName == "large" then
+              if tierName == "god" then
+                65536
+              else if tierName == "large" then
                 32768
               else if tierName == "medium" then
                 16384

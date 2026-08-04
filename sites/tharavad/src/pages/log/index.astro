@@ -1,0 +1,49 @@
+---
+import Base from "../../layouts/Base.astro";
+import { getCollection } from "astro:content";
+
+const entries = (await getCollection("log")).sort((a, b) =>
+  a.data.date < b.data.date ? 1 : -1,
+);
+
+const kindLabel: Record<string, string> = {
+  ship: "ship",
+  member: "member",
+  ops: "ops",
+  site: "site",
+};
+---
+<Base title="Ship log" description="What changed in the house. Newest first.">
+  <h1>Ship log</h1>
+
+  <p>
+    The house changelog. Not a marketing feed — a dated list of what we actually
+    shipped. Source lives in git:
+    <code>sites/tharavad/src/content/log/</code>.
+    One markdown file per entry. Merge to main, rebuild the site, it appears.
+  </p>
+
+  <p class="note">
+    How to add a line: copy an existing file, set <code>title</code>,
+    <code>date</code>, <code>kind</code> (ship | member | ops | site),
+    <code>summary</code>, write a short body, rebuild dist. If prose and the
+    repo disagree, trust the repo.
+  </p>
+
+  <ul>
+    {
+      entries.map((entry) => (
+        <li>
+          <a href={`/log/${entry.id}/`}>{entry.data.title}</a>
+          <span class="note">
+            {" "}
+            · {entry.data.date} · {kindLabel[entry.data.kind] ?? entry.data.kind} ·{" "}
+            {entry.data.author}
+          </span>
+          <br />
+          <span class="note">{entry.data.summary}</span>
+        </li>
+      ))
+    }
+  </ul>
+</Base>

@@ -15,4 +15,10 @@
     vcpu = 4;
     refquota = "40G";
   };
+  # operator playground — do not hand out lightly
+  god = {
+    mem = 30720; # MiB · 30G
+    vcpu = 8;
+    refquota = "200G";
+  };
 }
