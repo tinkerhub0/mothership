@@ -8,5 +8,5 @@
   ];
 
   # optional
-  # publish = [{ port = 3000; }];
+  publish = [{ port = 3000; }];
 }
