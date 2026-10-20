@@ -1,6 +1,6 @@
 # member: ahsan
 {
-  github = "Ahhsaaaaan";
+  github = "ahhsaaaaan";
   tier = "small";
   enabled = true;
 
