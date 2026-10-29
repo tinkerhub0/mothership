@@ -55,7 +55,10 @@ let
   githubDupMsgs = policy.duplicateGithubs members;
 in
 {
-  imports = [ ./isolation.nix ];
+  imports = [
+    ./isolation.nix
+    ./activity.nix
+  ];
 
   options.mothership.microvms = {
     enable = lib.mkEnableOption "per-member microVMs from user-vms/";

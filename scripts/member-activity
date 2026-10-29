@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# member-activity — when did each member last actually use their seat?
+#
+# runs hourly on mothership. per enabled member it records:
+#   first-seen  first time we saw the VM running (the inactivity clock starts here,
+#               so a VM that came up today isn't "inactive since july")
+#   last-ssh    last "Accepted publickey for <name>" on the bastion
+#   last-vm     last hour the VM did real work: cpu or network over a floor
+#               that an idle guest (tailscale keepalives, timers) stays under
+#
+# writes $STATE/activity.json for prune-inactive. reads only; touches no VM.
+#
+# env:
+#   ACTIVITY_STATE        state dir (default /var/lib/mothership/activity)
+#   ACTIVITY_MEMBERS      members table (default /etc/mothership/members.txt)
+#   ACTIVITY_SSH_HOST     bastion host to read sshd logs from (empty = local journal)
+#   ACTIVITY_SSH_IDENTITY ssh key for that host
+#   ACTIVITY_CPU_SECONDS  cpu seconds per hour that counts as use
+#   ACTIVITY_NET_KIB      KiB in+out per hour that counts as use
+set -euo pipefail
+
+STATE="${ACTIVITY_STATE:-/var/lib/mothership/activity}"
+MEMBERS="${ACTIVITY_MEMBERS:-/etc/mothership/members.txt}"
+SSH_HOST="${ACTIVITY_SSH_HOST:-}"
+SSH_ID="${ACTIVITY_SSH_IDENTITY:-}"
+CPU_MIN="${ACTIVITY_CPU_SECONDS:-60}"
+NET_MIN="${ACTIVITY_NET_KIB:-2048}"
+
+log() { printf '%s activity: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$*" >&2; }
+
+mkdir -p "$STATE/members"
+now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+now_s="$(date -u +%s)"
+
+# --- ssh logins --------------------------------------------------------------
+# first run reads the whole journal, later runs the last 3h (overlap is harmless)
+since="-3h"
+[[ -e "$STATE/ssh-backfilled" ]] || since="2020-01-01"
+read_journal=(journalctl -o short-iso --no-pager -t sshd -t sshd-session --since "$since" -g "Accepted publickey for ")
+logins=""
+if [[ -n "$SSH_HOST" ]]; then
+  ssh_opts=(-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new)
+  [[ -n "$SSH_ID" && -r "$SSH_ID" ]] && ssh_opts+=(-i "$SSH_ID")
+  logins="$(ssh "${ssh_opts[@]}" "$SSH_HOST" "$(printf '%q ' "${read_journal[@]}")" 2>/dev/null)" ||
+    log "warn: could not read sshd logs from $SSH_HOST"
+else
+  logins="$("${read_journal[@]}" 2>/dev/null)" || true
+fi
+[[ -n "$logins" ]] && touch "$STATE/ssh-backfilled"
+
+# name → newest login (ISO timestamps sort as strings)
+declare -A last_login=()
+while read -r ts name; do
+  [[ -z "${last_login[$name]:-}" || "$ts" > "${last_login[$name]}" ]] && last_login[$name]="$ts"
+done < <(printf '%s\n' "$logins" | sed -nE 's/^([0-9T:+-]+) .*Accepted publickey for ([a-z][a-z0-9-]*) .*/\1 \2/p')
+
+# --- per member --------------------------------------------------------------
+json="{"
+first=1
+while IFS=$'\t' read -r name rest; do
+  [[ -z "$name" || "$name" == \#* ]] && continue
+  [[ "$rest" == *"enabled=yes"* ]] || continue
+  tap="$(grep -oE 'tap=[^[:space:]]+' <<<"$rest" | cut -d= -f2)"
+  d="$STATE/members/$name"
+  mkdir -p "$d"
+
+  running=0
+  systemctl is-active -q "microvm@${name}.service" 2>/dev/null && running=1
+  [[ "$running" -eq 1 && ! -s "$d/first-seen" ]] && echo "$now" >"$d/first-seen"
+
+  if [[ -n "${last_login[$name]:-}" ]]; then
+    ts="$(date -u -d "${last_login[$name]}" +%Y-%m-%dT%H:%M:%SZ)"
+    [[ ! -s "$d/last-ssh" || "$ts" > "$(cat "$d/last-ssh")" ]] && echo "$ts" >"$d/last-ssh"
+  fi
+
+  # cpu (ns, from the VM's cgroup) + tap bytes, diffed against the last sample
+  if [[ "$running" -eq 1 ]]; then
+    cpu="$(systemctl show -p CPUUsageNSec --value "microvm@${name}.service" 2>/dev/null || echo 0)"
+    [[ "$cpu" =~ ^[0-9]+$ ]] || cpu=0
+    rx="$(cat "/sys/class/net/$tap/statistics/rx_bytes" 2>/dev/null || echo 0)"
+    tx="$(cat "/sys/class/net/$tap/statistics/tx_bytes" 2>/dev/null || echo 0)"
+    net=$((rx + tx))
+    if [[ -s "$d/sample" ]] && read -r p_s p_cpu p_net <"$d/sample"; then
+      dt=$((now_s - p_s))
+      # counters reset when the VM restarts; skip that interval
+      if ((dt > 0 && cpu >= p_cpu && net >= p_net)); then
+        cpu_h=$(((cpu - p_cpu) / 1000000000 * 3600 / dt))
+        net_h=$(((net - p_net) / 1024 * 3600 / dt))
+        if ((cpu_h >= CPU_MIN || net_h >= NET_MIN)); then
+          echo "$now" >"$d/last-vm"
+        fi
+        echo "$cpu_h $net_h" >"$d/last-rate"
+      fi
+    fi
+    echo "$now_s $cpu $net" >"$d/sample"
+  fi
+
+  get() { [[ -s "$d/$1" ]] && printf '"%s"' "$(cat "$d/$1")" || printf null; }
+  ((first)) || json+=","
+  first=0
+  json+="$(printf '"%s":{"first_seen":%s,"last_ssh":%s,"last_vm":%s}' \
+    "$name" "$(get first-seen)" "$(get last-ssh)" "$(get last-vm)")"
+done <"$MEMBERS"
+json+="}"
+
+printf '%s\n' "$json" >"$STATE/activity.json.tmp"
+mv "$STATE/activity.json.tmp" "$STATE/activity.json"
+log "updated $(grep -o '"first_seen"' "$STATE/activity.json" | wc -l) members"
