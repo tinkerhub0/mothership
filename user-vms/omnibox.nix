@@ -4,6 +4,7 @@
   tier = "god"; # 8 vCPU · 30G RAM · 200G disk
   enabled = true;
   linger = true; # Start user services at boot, including T3 Code.
+  extraModules = [ ../modules/guests/omnibox-t3.nix ];
   keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPgJj9GEaxD16KIwrB0M9qxeaFy33iCuCo99Jm/dxbkO terminal-shop"
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMckfpjGyg3/Hx7Xu0racB/V/PlaY5TvmHQdkLC2y90G alvinliju44@gmail.com"

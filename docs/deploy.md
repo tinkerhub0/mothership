@@ -10,7 +10,7 @@
 2. Someone merges it into main
 3. Within 2 minutes, git-sync on mothership notices
        ├─ only user-vms/ changed  → member mode: build, start the new VMs, leave others alone
-       ├─ hosts/ modules/ lib/    → fabric mode: rebuild the whole server
+       ├─ hosts/ modules/ lib/ pkgs/ → fabric mode: rebuild the whole server
        └─ docs, README, site      → skip: nothing to rebuild
 4. nixos-rebuild switch: the server becomes what main describes
 5. If anything the edge cares about changed, git-sync nudges the edge to update too

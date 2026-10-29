@@ -91,8 +91,42 @@ member file. This starts your user services at boot and keeps them running
 after you log out. Store unit files in `~/.config/systemd/user/`, which
 persists across VM restarts, then enable them with `systemctl --user enable
 --now <service>`. Keep app data in your home directory too; the guest's
-root filesystem is temporary. Omnibox enables this setting for T3 Code
-and its dedicated Tailscale service.
+root filesystem is temporary.
+
+### Omnibox's T3 Code service
+
+Source of truth: `user-vms/omnibox.nix` · `modules/guests/omnibox-t3.nix` ·
+`pkgs/t3code.nix` · `pkgs/omnibox-tailscale.nix`.
+
+Omnibox imports its service module through the optional `extraModules` list
+in its member file. Other member VMs do not load it. Nix supplies T3 Code,
+its native libraries, the personal Tailscale client, and the user services.
+Package dependencies are retained by the VM's Nix configuration, so the
+manual library links are no longer required by the service.
+
+As of 2026-10-29, the pinned versions are T3 Code 0.1.3 and Tailscale 1.104.4.
+Change their versions and checksums in a PR; merge and let git-sync deploy.
+Do not use `t3 service install` or `t3 update` on this Nix-managed service.
+
+The first deployment archives the old home-directory service files under
+`~/.local/state/omnibox-t3/legacy-units/` before the user manager starts.
+It leaves `~/.t3` (projects, sessions, and pairing grants) and
+`~/.local/share/omnibox-tailscale` (personal tailnet identity and certificates)
+in place. Existing provider installations and sign-ins stay in the home
+directory; the module does not provision provider credentials.
+
+Use `systemctl --user status t3code omnibox-tailscale omnibox-tailscale-serve`
+and `journalctl --user -u t3code` inside Omnibox. `tailscale-omnibox status`
+addresses the personal connection; plain `tailscale` still addresses the
+infrastructure Headscale network. On a new VM, run `tailscale-omnibox up
+--hostname=omnibox --accept-dns=false --accept-routes=false`, complete its
+sign-in, and enable Tailscale Serve when prompted. The forwarding service
+retries until the connection is ready. It exposes SSH and T3 HTTPS only
+inside that personal tailnet.
+
+The old downloaded runtimes and manual library links are left in the
+persistent home for rollback. They are not used by the Nix-managed units;
+remove them only after verifying the merged deployment.
 
 ## Leaving
 
