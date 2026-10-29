@@ -40,6 +40,8 @@ in
     }
   ];
   users.users.omnibox.uid = 1000;
+  # Let provider self-updaters run the generic Linux binaries they download.
+  programs.nix-ld.enable = true;
   environment.systemPackages = [
     t3
     personalTailscale
@@ -87,7 +89,7 @@ in
       WorkingDirectory = home;
       Environment = [
         "T3CODE_HOME=${home}/.t3"
-        "PATH=${home}/.grok/bin:${home}/.local/bin:${home}/.nix-profile/bin:/run/wrappers/bin:/etc/profiles/per-user/omnibox/bin:/run/current-system/sw/bin"
+        "PATH=${home}/.grok/bin:${home}/.local/bin:${home}/.opencode/bin:${home}/.nix-profile/bin:/run/wrappers/bin:/etc/profiles/per-user/omnibox/bin:/run/current-system/sw/bin"
       ];
       ExecStart = "${t3}/bin/t3 serve --host 127.0.0.1 --port 3773";
       KillMode = "mixed";

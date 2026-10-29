@@ -115,6 +115,21 @@ It leaves `~/.t3` (projects, sessions, and pairing grants) and
 in place. Existing provider installations and sign-ins stay in the home
 directory; the module does not provision provider credentials.
 
+Omnibox also enables nix-ld, a compatibility loader for generic Linux
+executables downloaded by provider updaters. This applies only to Omnibox.
+The T3 service searches `~/.local/bin` and `~/.opencode/bin` before the Nix
+profile, so native Claude and OpenCode installations can update themselves.
+Provider packages installed through `nix profile` still need Nix upgrades;
+their self-updaters cannot replace files in the Nix store.
+
+After the merged configuration deploys, check `~/.local/bin/claude --version`
+and `~/.opencode/bin/opencode --version` inside Omnibox. If a native provider
+is missing, install it with that provider's installer. Once the native copies
+work, use `nix profile list` to find any older Claude or OpenCode entries and
+`nix profile remove <name>` to remove those entries. Restart T3 with
+`systemctl --user restart t3code`, then check its provider versions again.
+Provider sign-ins remain in the persistent home directory.
+
 Use `systemctl --user status t3code omnibox-tailscale omnibox-tailscale-serve`
 and `journalctl --user -u t3code` inside Omnibox. `tailscale-omnibox status`
 addresses the personal connection; plain `tailscale` still addresses the
