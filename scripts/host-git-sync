@@ -148,7 +148,7 @@ is_edge_relevant() {
 
 is_mothership_irrelevant() {
   case "$1" in
-    hosts/edge/* | sites/* | README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
+    hosts/edge/* | sites/* | dns/* | README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
     scripts/*) return 0 ;;
     *) return 1 ;;
   esac
@@ -157,7 +157,7 @@ is_mothership_irrelevant() {
 is_edge_irrelevant() {
   case "$1" in
     hosts/mothership/* | modules/microvms/* | modules/deck/*) return 0 ;;
-    README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
+    dns/* | README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
     user-vms/template.nix) return 0 ;;
     *) return 1 ;;
   esac

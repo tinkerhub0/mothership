@@ -1,0 +1,17 @@
+---
+# zones/ is generated in CI from dns/*.nix — never edit it by hand
+providers:
+  config:
+    class: octodns.provider.yaml.YamlProvider
+    directory: ./zones
+  hetzner:
+    class: octodns_hetzner.HetznerProvider
+    # hetzner cloud api token (the old dns console api shut down in may 2026)
+    token: env/HETZNER_TOKEN
+
+zones:
+  tharavad.xyz.:
+    sources:
+      - config
+    targets:
+      - hetzner

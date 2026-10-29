@@ -46,6 +46,9 @@
         resources = opnsense.resources tharavadmathil;
       };
 
+      # public DNS as data — rendered for octoDNS by .github/workflows/dns.yml
+      dns.zones."tharavad.xyz" = import ./dns/tharavad.xyz.nix;
+
       nixosConfigurations.mothership = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
         specialArgs = { inherit self; };

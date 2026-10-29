@@ -10,3 +10,4 @@ secrets/*
 !secrets/*.sops.json
 sites/tharavad/node_modules/
 sites/tharavad/.astro/
+dns/zones/
