@@ -1,6 +1,6 @@
 # Getting a machine
 
-> **Source of truth:** `user-vms/template.nix` · `lib/tiers.nix` · `lib/memberPolicy.nix` · `scripts/signup`
+> **Source of truth:** `user-vms/template.nix` · `lib/tiers.nix` · `lib/memberPolicy.nix` · `lib/mkMemberVM.nix` · `scripts/signup`
 
 ## 1. Have an SSH key on GitHub
 
@@ -85,6 +85,13 @@ publish = [
 
 The HTTPS certificate is handled for you. Your app just serves plain HTTP.
 How the request travels: [network.md](network.md#public-https).
+
+For an app managed by `systemctl --user`, add `linger = true;` to your
+member file. This starts your user services at boot and keeps them running
+after you log out. Store unit files in `~/.config/systemd/user/`, which
+persists across VM restarts, then enable them with `systemctl --user enable
+--now <service>`. Keep app data in your home directory too; the guest's
+root filesystem is temporary.
 
 ## Leaving
 

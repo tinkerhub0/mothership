@@ -177,6 +177,7 @@ in
       # member account = hostname → ssh alvin@alvin
       users.users.${memberName} = {
         isNormalUser = true;
+        linger = member.linger or false;
         extraGroups = [ "wheel" ];
         openssh.authorizedKeys.keys = keys;
       };
