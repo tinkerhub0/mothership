@@ -95,12 +95,12 @@ root filesystem is temporary.
 
 ### Omnibox's T3 Code service
 
-Source of truth: `user-vms/omnibox.nix` · `modules/guests/omnibox-t3.nix` ·
+Source of truth: `hosts/mothership/default.nix` · `modules/guests/omnibox-t3.nix` ·
 `pkgs/t3code.nix` · `pkgs/omnibox-tailscale.nix`.
 
-Omnibox imports its service module through the optional `extraModules` list
-in its member file. Other member VMs do not load it. Nix supplies T3 Code,
-its native libraries, the personal Tailscale client, and the user services.
+The host attaches the service module directly to `microvm.vms.omnibox`.
+The shared member recipe and other member VMs do not load it. Nix supplies
+T3 Code, its native libraries, the personal Tailscale client, and the user services.
 Package dependencies are retained by the VM's Nix configuration, so the
 manual library links are no longer required by the service.
 

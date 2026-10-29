@@ -83,8 +83,6 @@ in
       ...
     }:
     {
-      imports = member.extraModules or [ ];
-
       microvm = {
         hypervisor = "cloud-hypervisor";
         vcpu = tier.vcpu;

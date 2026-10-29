@@ -1,4 +1,4 @@
-# Imported only by user-vms/omnibox.nix. Authentication stays in /persist/home.
+# Attached only to Omnibox by hosts/mothership/default.nix. Authentication stays in /persist/home.
 { config, pkgs, ... }:
 let
   t3 = pkgs.callPackage ../../pkgs/t3code.nix { };
