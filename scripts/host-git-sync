@@ -123,7 +123,7 @@ is_member_path() {
 # mothership fabric (this metal)
 is_mothership_fabric() {
   case "$1" in
-    hosts/mothership/* | modules/* | lib/* | pkgs/* | flake.nix | flake.lock) return 0 ;;
+    hosts/mothership/* | modules/* | lib/* | flake.nix | flake.lock) return 0 ;;
     scripts/host-git-sync | scripts/mothership-git-sync | scripts/deploy-notify) return 0 ;;
     *) return 1 ;;
   esac

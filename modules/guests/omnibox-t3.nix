@@ -14,7 +14,7 @@ let
     home="''${1:?persistent home required}"
     umask 077
     backup="$home/.local/state/omnibox-t3/legacy-units"
-    for unit in t3code omnibox-tailscale t3-tailscale; do
+    for unit in t3code omnibox-tailscale; do
       source="$home/.config/systemd/user/$unit.service"
       if [ -e "$source" ] || [ -L "$source" ]; then
         mkdir -p "$backup"
@@ -40,8 +40,6 @@ in
     }
   ];
   users.users.omnibox.uid = 1000;
-  # Let provider self-updaters run the generic Linux binaries they download.
-  programs.nix-ld.enable = true;
   environment.systemPackages = [
     t3
     personalTailscale
@@ -53,6 +51,9 @@ in
     "d /persist/home/.local/state 0755 omnibox users -"
     "d /persist/home/.local/state/omnibox-t3 0700 omnibox users -"
     "d /persist/home/.local/state/omnibox-t3/legacy-units 0700 omnibox users -"
+    "d /persist/home/.t3 0700 omnibox users -"
+    "d /persist/home/.t3/userdata 0700 omnibox users -"
+    "d /persist/home/.t3/userdata/logs 0700 omnibox users -"
   ];
 
   # Home unit files override /etc/systemd/user; retire them before lingering starts.
@@ -77,7 +78,7 @@ in
   };
 
   systemd.user.services.t3code = {
-    description = "T3 Code server (Nix managed)";
+    description = "T3 Code server";
     wantedBy = [ "default.target" ];
     unitConfig = {
       ConditionUser = "omnibox";
@@ -89,50 +90,37 @@ in
       WorkingDirectory = home;
       Environment = [
         "T3CODE_HOME=${home}/.t3"
-        "PATH=${home}/.grok/bin:${home}/.local/bin:${home}/.opencode/bin:${home}/.nix-profile/bin:/run/wrappers/bin:/etc/profiles/per-user/omnibox/bin:/run/current-system/sw/bin"
+        "T3_BOOT_SERVICE_UNIT=t3code.service"
+        "T3CODE_HOST=127.0.0.1"
+        "T3CODE_PORT=3773"
+        "PATH=${home}/.grok/bin:${home}/.local/bin:/run/wrappers/bin:${home}/.nix-profile/bin:/nix/profile/bin:${home}/.local/state/nix/profile/bin:/etc/profiles/per-user/omnibox/bin:/nix/var/nix/profiles/default/bin:/run/current-system/sw/bin"
       ];
-      ExecStart = "${t3}/bin/t3 serve --host 127.0.0.1 --port 3773";
+      # The installer launcher selects downloaded home-directory runtimes.
+      # Run the Nix package directly, retaining the existing local settings file.
+      EnvironmentFile = "-${home}/.t3/service.env";
+      ExecStart = "${t3}/bin/t3 serve";
       KillMode = "mixed";
       OOMPolicy = "continue";
       Restart = "always";
       RestartSec = 5;
+      CPUWeight = 1000;
+      IOWeight = 1000;
+      ManagedOOMPreference = "avoid";
+      StandardOutput = "append:${home}/.t3/userdata/logs/boot-service.log";
+      StandardError = "append:${home}/.t3/userdata/logs/boot-service.log";
     };
   };
 
   # Independent from the guest's infrastructure Headscale daemon.
   systemd.user.services.omnibox-tailscale = {
-    description = "Omnibox personal Tailscale connection (Nix managed)";
+    description = "Omnibox personal Tailscale connection";
+    after = [ "network-online.target" ];
     unitConfig.ConditionUser = "omnibox";
     wantedBy = [ "default.target" ];
     serviceConfig = {
       ExecStart = "${tailscale}/bin/tailscaled --tun=userspace-networking --statedir=${state} --state=${state}/tailscaled.state --socket=${socket} --port=0";
-      ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p ${state}";
-      UMask = "0077";
       Restart = "on-failure";
       RestartSec = 5;
-    };
-  };
-  systemd.user.services.omnibox-tailscale-serve = {
-    description = "Publish T3 and SSH inside Omnibox's personal tailnet";
-    unitConfig.ConditionUser = "omnibox";
-    wantedBy = [ "default.target" ];
-    requires = [
-      "omnibox-tailscale.service"
-      "t3code.service"
-    ];
-    after = [
-      "omnibox-tailscale.service"
-      "t3code.service"
-    ];
-    script = ''
-      ${personalTailscale}/bin/tailscale-omnibox serve --bg --yes --tcp=22 tcp://127.0.0.1:22
-      ${personalTailscale}/bin/tailscale-omnibox serve --bg --yes http://127.0.0.1:3773
-    '';
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      Restart = "on-failure";
-      RestartSec = 15;
     };
   };
 }
