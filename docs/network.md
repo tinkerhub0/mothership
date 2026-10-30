@@ -48,6 +48,13 @@ browser → edge :443 (HTTPS certificate here)
 
 The certificate lives on the edge, so your app only has to speak HTTP.
 
+A VM's name only serves a website after its member file adds a `publish`
+entry (see [Put a website online](join.md#put-a-website-online)). For a name
+without a web route, the edge returns "No website configured for this
+hostname" over HTTP. It rejects the HTTPS connection because it has no
+certificate for that name. It does not serve another member's site or the
+landa console. SSH access works independently of website publishing.
+
 ## The mesh
 
 Every VM runs Tailscale and joins our Headscale server on mothership, so
