@@ -12,6 +12,7 @@ order. Each page takes about five minutes.
 | 5 | [How deploys work](deploy.md) | what happens between "merge" and "running" |
 | 6 | [Operating it](ops.md) | for admins: getting in, logs, undoing a bad change |
 | 7 | [The space's firewall](house-firewall.md) | the XGS firewall, configured from git |
+| 7b | [The space's network](house-network.md) | servers, members and management on separate networks; the static IP |
 | 8 | [DNS](dns.md) | every public name, managed from git |
 | 9 | [Running NixOS on Hetzner](hetzner.md) | our front door VPS, reusable for your own project |
 | 10 | [Drills](drills.md) | breaking it on purpose and timing the comeback |

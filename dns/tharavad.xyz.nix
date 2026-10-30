@@ -1,4 +1,5 @@
-# tharavad.xyz — every record, as data. octoDNS pushes it to hetzner DNS.
+# tharavad.xyz — every record, as data. octoDNS pushes it to hetzner DNS
+# (the zone is hosted there; no record points at a hetzner machine).
 #
 #   nix eval --json .#dns.zones.\"tharavad.xyz\"   what octoDNS will be told
 #   .github/workflows/dns.yml                       dry-run on PR, apply on merge
@@ -8,6 +9,14 @@
 let
   site = import ../lib/site.nix;
   ttl = 300;
+  # home, never the retired edge. fail the render instead of guessing.
+  front =
+    if site.publicIPv4 == null then
+      throw "lib/site.nix: publicIPv4 is null. set airtel's static ip (WAN_D) before DNS can render"
+    else if site.publicIPv4 == site.retiredIPv4 then
+      throw "lib/site.nix: publicIPv4 is the retired hetzner edge"
+    else
+      site.publicIPv4;
   a = value: {
     inherit ttl value;
     type = "A";
@@ -19,9 +28,10 @@ let
   };
 in
 {
-  # apex + wildcard → front door (bastion ssh, member https, landing)
-  "" = a site.publicIPv4;
-  "*" = a site.publicIPv4;
+  # apex + wildcard → front door: airtel static → WAN_D → 1:1 → mothership
+  # (bastion ssh, member https, landing, headscale :8080)
+  "" = a front;
+  "*" = a front;
 
   auth = toApex;
   chat = toApex;
