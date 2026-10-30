@@ -14,7 +14,20 @@
       device = "bridge0";
       address = "192.168.12.1";
       prefix = 23; # 192.168.12.0 – 192.168.13.255, one subnet
-      members = [ "Port3" ]; # uplink to the netgear; APs hang off the switch
+      # Port3 = uplink to the netgear (APs, desks). Port2 = mothership until
+      # SERVERS exists. 4–8 + F1/F2 are still in the bridge, unused.
+      # Port9 left on 2026-10-30 to become WAN_D.
+      members = [
+        "Port2"
+        "Port3"
+        "Port4"
+        "Port5"
+        "Port6"
+        "Port7"
+        "Port8"
+        "F1"
+        "F2"
+      ];
     };
     # wans take dhcp from whatever isp box is on the port; those boxes and
     # their subnets move, so they are not pinned here.
@@ -31,6 +44,13 @@
     opt9 = {
       name = "WAN_C";
       device = "npup10"; # Port10 — jio
+      ipv4 = "dhcp";
+    };
+    # airtel static. their router holds the static ip; we take dhcp from it.
+    # servers only: not in FAILOVER, see the rules for how that's enforced.
+    opt8 = {
+      name = "WAN_D";
+      device = "npup9"; # Port9
       ipv4 = "dhcp";
     };
   };
@@ -68,6 +88,10 @@
     WAN_C_DHCP = {
       interface = "opt9";
       monitor = "208.67.222.222";
+    };
+    WAN_D_DHCP = {
+      interface = "opt8";
+      monitor = "8.8.4.4";
     };
   };
 
