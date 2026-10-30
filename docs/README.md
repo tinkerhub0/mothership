@@ -6,15 +6,16 @@ order. Each page takes about five minutes.
 | | Page | You'll learn |
 |---|---|---|
 | 1 | [Getting a machine](join.md) | sign up, SSH in, put a website online |
-| 2 | [Glossary](glossary.md) | VM, Nix, mesh, WireGuard and the rest, in plain words |
-| 3 | [How traffic reaches your VM](network.md) | every hop from the internet to your machine |
-| 4 | [The server](metal.md) | the hardware: CPUs, disks, power, boot |
-| 5 | [How deploys work](deploy.md) | what happens between "merge" and "running" |
-| 6 | [Operating it](ops.md) | for admins: getting in, logs, undoing a bad change |
-| 7 | [The space's firewall](house-firewall.md) | the XGS firewall, configured from git |
-| 8 | [DNS](dns.md) | every public name, managed from git |
-| 9 | [Running NixOS on Hetzner](hetzner.md) | our front door VPS, reusable for your own project |
-| 10 | [Drills](drills.md) | breaking it on purpose and timing the comeback |
+| 2 | [Keeping your seat](seats.md) | what counts as using your VM, and what happens if you don't |
+| 3 | [Glossary](glossary.md) | VM, Nix, mesh, WireGuard and the rest, in plain words |
+| 4 | [How traffic reaches your VM](network.md) | every hop from the internet to your machine |
+| 5 | [The server](metal.md) | the hardware: CPUs, disks, power, boot |
+| 6 | [How deploys work](deploy.md) | what happens between "merge" and "running" |
+| 7 | [Operating it](ops.md) | for admins: getting in, logs, undoing a bad change |
+| 8 | [The space's firewall](house-firewall.md) | the XGS firewall, configured from git |
+| 9 | [DNS](dns.md) | every public name, managed from git |
+| 10 | [Running NixOS on Hetzner](hetzner.md) | our front door VPS, reusable for your own project |
+| 11 | [Drills](drills.md) | breaking it on purpose and timing the comeback |
 
 ## The one rule
 

@@ -77,6 +77,24 @@ in
   # rollout: count spoof hits only until every guest renewed onto its static
   # lease (leases ≤1h), then delete this line. smtp block + conn cap are live.
   mothership.microvms.isolation.enforce = false;
+
+  # inactive = 10 days with no ssh login and no real work inside the VM.
+  # warn at 7, park PR at 10, delete PR 30 days after parking.
+  # prune.enable = false → dry-run: journalctl -u prune-inactive shows the plan.
+  mothership.microvms.activity = {
+    sshHost = "root@10.99.0.1"; # bastion lives on the edge for now
+    sshIdentity = "/var/lib/mothership/git-sync/edge_trigger_ed25519";
+    prune = {
+      enable = false;
+      warnDays = 7;
+      parkDays = 10;
+      deleteDays = 30;
+      exempt = [
+        "demo"
+        "omnibox"
+      ];
+    };
+  };
   mothership.bastion.trustBastionKey = true;
   mothership.memberPublish = {
     enable = true;

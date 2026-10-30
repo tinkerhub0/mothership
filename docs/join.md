@@ -98,3 +98,6 @@ and its dedicated Tailscale service.
 
 Delete your file in a PR. If you want to keep the name for later, set
 `enabled = false;` instead.
+
+Not using it? Seats idle for 10 days get parked, and later released, always
+through a PR with a warning first. See [Keeping your seat](seats.md).

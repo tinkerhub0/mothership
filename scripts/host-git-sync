@@ -125,6 +125,7 @@ is_mothership_fabric() {
   case "$1" in
     hosts/mothership/* | modules/* | lib/* | flake.nix | flake.lock) return 0 ;;
     scripts/host-git-sync | scripts/mothership-git-sync | scripts/deploy-notify) return 0 ;;
+    scripts/member-activity | scripts/prune-inactive) return 0 ;; # baked into modules/microvms/activity.nix
     *) return 1 ;;
   esac
 }
