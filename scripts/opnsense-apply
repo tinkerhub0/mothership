@@ -73,12 +73,19 @@ for ((i = 0; i < count; i++)); do
   wrap="$(jq -r .api.wrap <<<"$res")"
   label="$(jq -r '.match | to_entries | map("\(.key)=\(.value)") | join(" ")' <<<"$res")"
 
-  uuids="$(api POST "$(jq -r .api.search <<<"$res")" '{"current":1,"rowCount":-1}' | jq -r '.rows[].uuid')"
   found=""
   live="{}"
+  if [[ "$(jq -r .api.search <<<"$res")" == null ]]; then
+    # settings object: always exists, no uuid
+    uuids="-"
+  else
+    uuids="$(api POST "$(jq -r .api.search <<<"$res")" '{"current":1,"rowCount":-1}' | jq -r '.rows[].uuid')"
+  fi
   for u in $uuids; do
+    get="$(jq -r .api.get <<<"$res")"
+    [[ "$u" == - ]] || get="$get/$u"
     # rules opnsense generates itself answer getRule with [] — not ours, skip
-    cand="$(api GET "$(jq -r .api.get <<<"$res")/$u" | jq -c --arg w "$wrap" "if type == \"object\" and (.[\$w] | type) == \"object\" then .[\$w] | ${flatten} else empty end")"
+    cand="$(api GET "$get" | jq -c --arg w "$wrap" "if type == \"object\" and (.[\$w] | type) == \"object\" then .[\$w] | ${flatten} else empty end")"
     [[ -n "$cand" ]] || continue
     if jq -e --argjson m "$(jq -c .match <<<"$res")" --arg family "$(jq -r '.family // ""' <<<"$res")" \
       '. as $l | ($m | to_entries | all(.value == $l[.key])) and ($family == "" or (($l.start_addr | contains(":")) == ($family == "inet6")))' \
@@ -114,7 +121,9 @@ for ((i = 0; i < count; i++)); do
     if [[ -z "$found" ]]; then
       out="$(api POST "$(jq -r .api.add <<<"$res")" "$body")"
     else
-      out="$(api POST "$(jq -r .api.set <<<"$res")/$found" "$body")"
+      set="$(jq -r .api.set <<<"$res")"
+      [[ "$found" == - ]] || set="$set/$found"
+      out="$(api POST "$set" "$body")"
     fi
     if [[ "$(jq -r .result <<<"$out")" != saved ]]; then
       echo "    refused: $out" >&2

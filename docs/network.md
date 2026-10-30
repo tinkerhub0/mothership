@@ -72,8 +72,8 @@ switch (`br-deck`).
 
 These are plans, not current state:
 
-- **Move the cables:** Airtel into the firewall instead of straight into the server, and mothership on its own firewall port.
-- **Drop the edge:** with an Airtel static IP, everything the edge does moves onto mothership. We need to confirm Airtel isn't putting us behind its own NAT (CGNAT) first.
+- **Move the cables** (in progress, 2026-10-30): Airtel on firewall Port 9 (WAN_D), mothership on Port 2 (SERVERS, `10.20.0.10`). See [The space's network](house-network.md).
+- **Drop the edge:** with the Airtel static IP, everything the edge does moves onto mothership and DNS points home (`lib/site.nix`). We need to confirm Airtel isn't putting us behind its own NAT (CGNAT) first.
 - **IPv6:** Airtel already gives us IPv6. Turn it on for the LAN, then go IPv6-mostly like the [CCC congress](https://events.ccc.de/congress/2025/infos/network.html).
 - **Wi-Fi logins from git:** with a VLAN-capable switch, WPA-Enterprise accounts generated from `user-vms/`. One PR, a VM *and* Wi-Fi.
 - **VM isolation** ([#92](https://github.com/tinkerhub0/mothership/pull/92)): each VM may only send from its own MAC and IP, outbound email (port 25) is blocked, and connections are capped per VM. All of it is generated from `user-vms/`, the same idea as Hetzner Cloud's per-VM network rules.

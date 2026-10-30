@@ -11,13 +11,18 @@ script sends it to the firewall over OPNsense's API.
 
 | Port | Role |
 |---|---|
-| LAN bridge | `192.168.12.1/23`; DHCP hands out `.12.10`–`.13.250` |
+| LAN bridge (Port 3–8, F1, F2) | MEMBERS `192.168.12.1/23`; DHCP hands out `.12.10`–`.13.250` |
+| Port 2 | SERVERS `10.20.0.1/24`, mothership reserved at `.10` |
+| Port 9 | WAN_D, Airtel static, servers only |
 | Port 11 | internet line A |
 | Port 12 | internet line B |
 | Port 10 | internet line C (Jio) |
-| one LAN port | → Netgear JGS516 switch → Wi-Fi access points, desks |
+| Port 3 | → Netgear JGS516 switch → Wi-Fi access points, desks |
 
-The three internet lines form a failover group: if A goes down, traffic
+How the networks are split and what may talk to what:
+[The space's network](house-network.md).
+
+The three shared internet lines form a failover group: if A goes down, traffic
 moves to B, then C.
 
 ## Making a change

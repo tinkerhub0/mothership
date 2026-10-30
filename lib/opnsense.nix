@@ -41,23 +41,54 @@ rec {
     fw:
     let
       lan = fw.interfaces.lan;
-      lanNet = subnet lan.address lan.prefix;
-      range = fw.dhcp.lan;
       monitors = lib.mapAttrsToList (_: g: g.monitor) fw.gateways;
       gwNames = lib.attrNames fw.gateways;
       groupNames = lib.attrNames fw.gatewayGroups;
-      wanIfs = lib.filterAttrs (n: _: n != "lan") fw.interfaces;
+      # an interface with an address is ours (static); without one it's a wan (dhcp)
+      wanIfs = lib.filterAttrs (_: i: !(i ? address)) fw.interfaces;
+      ownIfs = lib.filterAttrs (_: i: i ? address) fw.interfaces;
+      nets = builtinNets ++ lib.attrNames fw.interfaces ++ map (n: "${n}ip") (lib.attrNames fw.interfaces);
+      knownNet = n: lib.elem n nets || lib.hasAttr n fw.aliases;
       fail = cond: msg: lib.optional (!cond) msg;
     in
     lib.flatten [
-      (fail (lan.prefix >= 8 && lan.prefix <= 30) "lan prefix /${toString lan.prefix} out of range")
-      (fail (
-        ipToInt lan.address == lanNet.network + 1
-      ) "lan address ${lan.address} is not the first host of its subnet")
-      (fail (inside lanNet range.start) "dhcp start ${range.start} not inside the lan")
-      (fail (inside lanNet range.end) "dhcp end ${range.end} not inside the lan")
-      (fail (ipToInt range.start <= ipToInt range.end) "dhcp start is after dhcp end")
-      (fail (ipToInt range.start > ipToInt lan.address) "dhcp range overlaps the firewall address")
+      (fail (lan ? address) "lan needs a static address")
+      (lib.mapAttrsToList (
+        n: i:
+        let
+          net = subnet i.address i.prefix;
+        in
+        [
+          (fail (i.prefix >= 8 && i.prefix <= 30) "${n} prefix /${toString i.prefix} out of range")
+          (fail (
+            ipToInt i.address == net.network + 1
+          ) "${n} address ${i.address} is not the first host of its subnet")
+        ]
+      ) ownIfs)
+      (lib.mapAttrsToList (
+        n: d:
+        let
+          i = fw.interfaces.${n} or { };
+          net = subnet i.address i.prefix;
+          hosts = d.hosts or { };
+        in
+        if !(i ? address) then
+          [ "dhcp on ${n}: not a static interface" ]
+        else
+          [
+            (fail (inside net d.start) "dhcp ${n}: start ${d.start} not inside ${n}")
+            (fail (inside net d.end) "dhcp ${n}: end ${d.end} not inside ${n}")
+            (fail (ipToInt d.start <= ipToInt d.end) "dhcp ${n}: start is after end")
+            (fail (ipToInt d.start > ipToInt i.address) "dhcp ${n}: range overlaps the firewall address")
+            (lib.mapAttrsToList (h: r: [
+              (fail (inside net r.ip) "dhcp ${n}: host ${h} ${r.ip} not inside ${n}")
+              (fail (r.ip != i.address) "dhcp ${n}: host ${h} takes the firewall address")
+              (fail (
+                ipToInt r.ip < ipToInt d.start || ipToInt r.ip > ipToInt d.end
+              ) "dhcp ${n}: host ${h} ${r.ip} sits inside the dynamic range")
+            ]) hosts)
+          ]
+      ) fw.dhcp)
       (fail (lib.length monitors == lib.length (lib.unique monitors)) "gateway monitor ips must differ")
       (lib.mapAttrsToList (
         n: g: fail (lib.hasAttr g.interface wanIfs) "gateway ${n}: interface ${g.interface} not declared"
@@ -73,9 +104,14 @@ rec {
         (fail (
           r ? gateway -> lib.elem r.gateway (gwNames ++ groupNames)
         ) "rule '${r.description}': unknown gateway ${r.gateway or ""}")
-        (fail (
-          lib.elem r.destination builtinNets || lib.hasAttr r.destination fw.aliases
-        ) "rule '${r.description}': unknown destination ${r.destination}")
+        (fail (knownNet r.destination) "rule '${r.description}': unknown destination ${r.destination}")
+        (fail (knownNet r.source) "rule '${r.description}': unknown source ${r.source}")
+        (fail (lib.elem (r.action or "pass") [
+          "pass"
+          "block"
+          "reject"
+        ]) "rule '${r.description}': action must be pass, block or reject")
+        (fail (lib.hasAttr r.interface fw.interfaces) "rule '${r.description}': unknown interface ${r.interface}")
       ]) fw.rules)
       (fail (
         lib.length (map (r: r.description) fw.rules)
@@ -146,6 +182,14 @@ rec {
           apply = "routing/settings/reconfigure";
           wrap = "gateway_item";
         };
+        # one settings object, no uuid: the script gets/sets it without one
+        dnsmasq = {
+          search = null;
+          get = "dnsmasq/settings/get";
+          set = "dnsmasq/settings/set";
+          apply = "dnsmasq/service/reconfigure";
+          wrap = "dnsmasq";
+        };
         range = {
           search = "dnsmasq/settings/searchRange";
           get = "dnsmasq/settings/getRange";
@@ -153,6 +197,14 @@ rec {
           set = "dnsmasq/settings/setRange";
           apply = "dnsmasq/service/reconfigure";
           wrap = "range";
+        };
+        host = {
+          search = "dnsmasq/settings/searchHost";
+          get = "dnsmasq/settings/getHost";
+          add = "dnsmasq/settings/addHost";
+          set = "dnsmasq/settings/setHost";
+          apply = "dnsmasq/service/reconfigure";
+          wrap = "host";
         };
         rule = {
           search = "firewall/filter/searchRule";
@@ -234,34 +286,58 @@ rec {
         content = lib.concatStringsSep "\n" a.content;
       }
     ) fw.aliases
+    # dnsmasq only answers dhcp on the interfaces listed here. a range on an
+    # interface missing from it is silently ignored (SERVERS, 2026-10-30).
     ++ [
-      (v4range
-        {
-          interface = "lan";
-          domain_type = "range";
-        }
-        {
-          interface = "lan";
-          domain_type = "range";
-          start_addr = fw.dhcp.lan.start;
-          end_addr = fw.dhcp.lan.end;
-          lease_time = toString fw.dhcp.lan.leaseSeconds;
-        }
-      )
+      (item "dnsmasq" { } {
+        interface = lib.concatStringsSep "," (lib.sort lib.lessThan (lib.attrNames fw.dhcp));
+      })
     ]
+    ++ lib.mapAttrsToList (
+      n: d:
+      v4range
+        {
+          interface = n;
+          domain_type = "range";
+        }
+        {
+          interface = n;
+          domain_type = "range";
+          start_addr = d.start;
+          end_addr = d.end;
+          lease_time = toString d.leaseSeconds;
+        }
+    ) fw.dhcp
+    # fixed addresses: dnsmasq hosts, matched by name
+    ++ lib.flatten (
+      lib.mapAttrsToList (
+        _: d:
+        lib.mapAttrsToList (
+          h: r:
+          item "host" { host = h; } {
+            host = h;
+            inherit (r) ip;
+            hwaddr = r.mac;
+            descr = r.description or "";
+          }
+        ) (d.hosts or { })
+      ) fw.dhcp
+    )
     ++ lib.imap1 (
       i: r:
       item "rule" { inherit (r) description; } {
         inherit (r) description interface;
         enabled = "1";
         sequence = toString i;
-        action = "pass";
+        action = r.action or "pass";
         quick = "1";
-        direction = "in";
+        direction = r.direction or "in";
         ipprotocol = "inet";
-        protocol = "any";
+        protocol = r.protocol or "any";
         source_net = r.source;
+        source_not = if r.sourceNot or false then "1" else "0";
         destination_net = r.destination;
+        destination_port = r.port or "";
         gateway = r.gateway or "";
       }
     ) fw.rules;

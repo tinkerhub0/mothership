@@ -42,10 +42,14 @@ touches DNS.
 
 ## Changing the front door IP
 
-The domain and the public IP live in **one file**, `lib/site.nix`. When the
-Airtel static IP replaces the edge VPS, change it there and DNS follows on
-merge. Some host config still hardcodes the IP; those are moving over one
-PR at a time (`grep -r 178.105.120.5`).
+The domain and the public IP live in **one file**, `lib/site.nix`.
+`publicIPv4` is the Airtel static IP on WAN_D. It's `null` until that line
+has its lease, and while it's `null` the zone refuses to render: the DNS
+workflow fails instead of pointing names at nothing. The zone also refuses
+the retired Hetzner edge (`retiredIPv4`). Set the IP, merge, and DNS
+follows. The cutover order is in [The space's network](house-network.md#cutover-checklist).
+Some host config still hardcodes the edge; that goes away with the edge
+(`grep -r 178.105.120.5`).
 
 ## Try it locally
 
