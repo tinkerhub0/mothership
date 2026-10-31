@@ -74,6 +74,10 @@ in
   # member VMs: user-vms/*.nix
   # public: ssh you@you.<domain> via edge bastion; mesh is internal only
   mothership.microvms.enable = true;
+  # Personal T3 services belong only to Omnibox, not the shared member recipe.
+  microvm.vms.omnibox.extraModules = [
+    ../../modules/guests/omnibox-t3.nix
+  ];
   # rollout: count spoof hits only until every guest renewed onto its static
   # lease (leases ≤1h), then delete this line. smtp block + conn cap are live.
   mothership.microvms.isolation.enforce = false;
