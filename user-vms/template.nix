@@ -12,6 +12,9 @@
   tier = "small"; # small | medium | large
   enabled = true;
 
+  # Keep Nix user profiles and store registrations across VM reboots.
+  # persistNixState = true;
+
   # paste from https://github.com/<you>.keys — must be non-empty
   keys = [
     # "ssh-ed25519 AAAA… comment"

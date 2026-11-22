@@ -78,12 +78,28 @@ in
 
   guest =
     {
+      config,
       pkgs,
       lib,
       ...
     }:
+    let
+      persistNixState = member.persistNixState or false;
+      nixStateImport = "/nix/.rw-store/nix-state-import";
+    in
     {
       programs.nix-ld.enable = member.nixLd or false;
+
+      boot.postBootCommands = lib.mkIf persistNixState (lib.mkAfter ''
+        if [ -f ${nixStateImport}/registration ]; then
+          if ${config.nix.package}/bin/nix-store --load-db < ${nixStateImport}/registration &&
+            ${pkgs.coreutils}/bin/cp -a --update=none ${nixStateImport}/links/. /nix/var/nix/; then
+            ${pkgs.coreutils}/bin/mv ${nixStateImport}/registration ${nixStateImport}/registration.imported
+          else
+            echo "Could not import saved Nix state from ${nixStateImport}" >&2
+          fi
+        fi
+      '');
 
       microvm = {
         hypervisor = "cloud-hypervisor";
@@ -114,7 +130,13 @@ in
               else
                 8192;
           }
-        ];
+        ]
+        ++ lib.optional persistNixState {
+          image = "nix-state.img";
+          label = "nix-state";
+          mountPoint = "/nix/var/nix";
+          size = 1024;
+        };
 
         shares = [
           {
@@ -220,14 +242,20 @@ in
         "d /nix/var/nix/gcroots/per-user/${memberName} 0755 ${memberName} users -"
       ];
 
-      # bind-mount persistent tailscale state (must exist before tailscaled)
-      fileSystems."/var/lib/tailscale" = {
-        device = "/persist/tailscale";
-        fsType = "none";
-        options = [
-          "bind"
-          "X-mount.mkdir"
-        ];
+      fileSystems = {
+        # bind-mount persistent tailscale state (must exist before tailscaled)
+        "/var/lib/tailscale" = {
+          device = "/persist/tailscale";
+          fsType = "none";
+          options = [
+            "bind"
+            "X-mount.mkdir"
+          ];
+        };
+      }
+      // lib.optionalAttrs persistNixState {
+        # Mount before MicroVM registers the system closure during boot.
+        "/nix/var/nix".neededForBoot = true;
       };
 
       systemd.services.tailscaled = {
