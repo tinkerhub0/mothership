@@ -83,6 +83,8 @@ in
       ...
     }:
     {
+      programs.nix-ld.enable = member.nixLd or false;
+
       microvm = {
         hypervisor = "cloud-hypervisor";
         vcpu = tier.vcpu;
