@@ -1,6 +1,7 @@
 # hosts/mothership — identity of this metal.
 # capabilities live under ../../modules.
 {
+  config,
   lib,
   ...
 }:
@@ -74,6 +75,9 @@ in
   # member VMs: user-vms/*.nix
   # public: ssh you@you.<domain> via edge bastion; mesh is internal only
   mothership.microvms.enable = true;
+  microvm.vms = lib.mkIf (config.mothership.microvms.enabledMembers ? omnibox) {
+    omnibox.extraModules = [ ../../modules/guests/omnibox-nix-state.nix ];
+  };
   # rollout: count spoof hits only until every guest renewed onto its static
   # lease (leases ≤1h), then delete this line. smtp block + conn cap are live.
   mothership.microvms.isolation.enforce = false;
