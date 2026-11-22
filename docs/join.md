@@ -99,6 +99,38 @@ loader, set `nixLd = true;` in your member file. This enables NixOS's
 `nix-ld` loader for your VM. Omnibox uses it so the T3 Code updater can
 start the binaries it downloads.
 
+## Keep Nix packages registered across reboots
+
+Set `persistNixState = true;` in your member file. This gives the guest's
+Nix database and system-managed profile links a persistent disk. Nix can
+then keep track of the packages you install with `nix profile` across
+VM reboots. Omnibox enables this option.
+
+On an existing VM, save the current registrations and profile links from
+inside the guest before merging the change. Run this after any final
+package updates and while Nix still recognizes the installed packages:
+
+```bash
+sudo bash -eu <<'EOF'
+umask 077
+stage=/nix/.rw-store/nix-state-import
+install -d -m 0700 "$stage" "$stage/links"
+cd /nix/var/nix
+for path in gcroots/auto gcroots/per-user profiles/per-user; do
+  if [ -d "$path" ]; then
+    cp -a --parents "$path" "$stage/links"
+  fi
+done
+nix-store --dump-db > "$stage/registration.new"
+mv "$stage/registration.new" "$stage/registration"
+EOF
+```
+
+The first boot imports the saved state and renames the export to
+`registration.imported`. After deployment, run `nix profile list` and
+`nix path-info` on the store paths it shows. If Nix already forgot an
+installed package before the export, restore that package first.
+
 ## Leaving
 
 Delete your file in a PR. If you want to keep the name for later, set
