@@ -128,7 +128,8 @@ EOF
 ```
 
 The first boot imports the saved state and renames the export to
-`registration.imported`. After deployment, run `nix profile list` and
+`registration.imported`. The backup stays private and the Nix daemon
+remains accessible to the guest user. After deployment, run `nix profile list` and
 `nix path-info` on the store paths it shows. If Nix already forgot an
 installed package before the export, restore that package first.
 
