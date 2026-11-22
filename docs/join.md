@@ -94,6 +94,11 @@ persists across VM restarts, then enable them with `systemctl --user enable
 root filesystem is temporary. Omnibox enables this setting for T3 Code
 and its dedicated Tailscale service.
 
+If your app ships a prebuilt Linux binary that expects the standard Linux
+loader, set `nixLd = true;` in your member file. This enables NixOS's
+`nix-ld` loader for your VM. Omnibox uses it so the T3 Code updater can
+start the binaries it downloads.
+
 ## Leaving
 
 Delete your file in a PR. If you want to keep the name for later, set
