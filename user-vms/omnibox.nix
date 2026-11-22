@@ -5,6 +5,7 @@
   enabled = true;
   linger = true; # Start user services at boot, including T3 Code.
   nixLd = true; # Let T3 Code start the Linux binary downloaded by its updater.
+  persistNixState = true; # Keep Nix user profiles and store registrations across reboots.
   keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPgJj9GEaxD16KIwrB0M9qxeaFy33iCuCo99Jm/dxbkO terminal-shop"
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMckfpjGyg3/Hx7Xu0racB/V/PlaY5TvmHQdkLC2y90G alvinliju44@gmail.com"

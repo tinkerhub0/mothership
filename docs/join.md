@@ -104,7 +104,7 @@ start the binaries it downloads.
 Set `persistNixState = true;` in your member file. This gives the guest's
 Nix database and system-managed profile links a persistent disk. Nix can
 then keep track of the packages you install with `nix profile` across
-VM reboots.
+VM reboots. Omnibox enables this option to keep its provider tools registered.
 
 On an existing VM, save the current registrations and profile links from
 inside the guest before merging the change. Run this after any final
