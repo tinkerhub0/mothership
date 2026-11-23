@@ -1,0 +1,103 @@
+{
+  "uid": "mothership-host",
+  "title": "Mothership — host and microVMs",
+  "tags": ["mothership"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "CPU idle",
+      "description": "Share of all logical CPUs that are idle. This host has 88 logical CPUs (measured 2026-11-23).",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])))",
+          "legendFormat": "idle"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Memory available",
+      "description": "Memory the kernel can hand to a new process without swapping. Page cache counts as available.",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes",
+          "legendFormat": "available"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Load average",
+      "description": "Running plus waiting processes, over 1, 5 and 15 minutes. Compare with the CPU count, not with 100%.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": []
+      },
+      "targets": [
+        { "refId": "A", "expr": "node_load1", "legendFormat": "1 min" },
+        { "refId": "B", "expr": "node_load5", "legendFormat": "5 min" },
+        { "refId": "C", "expr": "node_load15", "legendFormat": "15 min" }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Busiest cgroups",
+      "description": "CPU use per cgroup. Each microVM and virtiofsd is a service with its own cgroup, so this is per-VM usage. Raw cgroups have an empty name label, so the id label holds the cgroup path.",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 14 },
+      "fieldConfig": {
+        "defaults": { "unit": "percent" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(5, sum by (id) (rate(container_cpu_usage_seconds_total{id!=\"/\"}[5m])) * 100)",
+          "legendFormat": "{{id}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Memory by cgroup",
+      "description": "Working set of the five largest cgroups. The id label holds the cgroup path, which for a VM is its systemd service name.",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 23 },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(5, container_memory_working_set_bytes{id!=\"/\"})",
+          "legendFormat": "{{id}}"
+        }
+      ]
+    }
+  ]
+}

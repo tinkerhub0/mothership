@@ -16,6 +16,7 @@ order. Each page takes about five minutes.
 | 9 | [DNS](dns.md) | every public name, managed from git |
 | 10 | [Running NixOS on Hetzner](hetzner.md) | our front door VPS, reusable for your own project |
 | 11 | [Drills](drills.md) | breaking it on purpose and timing the comeback |
+| 12 | [Metrics and dashboards](monitoring.md) | CPU, memory and per-VM numbers on the host |
 
 ## The one rule
 

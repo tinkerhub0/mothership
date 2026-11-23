@@ -72,6 +72,10 @@ in
   # public: https://status.tharavad.xyz via edge status-proxy
   mothership.deck.uptimeKuma.enable = true;
 
+  # white-box numbers behind the status page: host CPU/RAM and per-cgroup
+  # (per-microVM) usage. loopback only — see docs/monitoring.md.
+  mothership.deck.metrics.enable = true;
+
   # member VMs: user-vms/*.nix
   # public: ssh you@you.<domain> via edge bastion; mesh is internal only
   mothership.microvms.enable = true;

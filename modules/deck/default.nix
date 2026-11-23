@@ -10,6 +10,7 @@
     ./network.nix
     ./mattermost.nix
     ./uptime-kuma.nix
+    ./metrics.nix
     # ./vaultwarden.nix
   ];
 }
