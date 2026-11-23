@@ -7,6 +7,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -44,6 +45,15 @@ in
       type = lib.types.str;
       default = "15d";
       description = "How long Prometheus keeps samples before dropping old ones.";
+    };
+
+    secretKeyFile = lib.mkOption {
+      type = lib.types.path;
+      default = "/var/lib/mothership/grafana/secret_key";
+      description = ''
+        Local file holding Grafana's signing key. Generated on first boot and
+        kept in /var/lib, never in git or the Nix store.
+      '';
     };
   };
 
@@ -90,8 +100,35 @@ in
       extraOptions = [ "--docker_only=false" ];
     };
 
+    # Grafana 26.05 has no default signing key. Generate one on the box on
+    # first boot and keep it outside the store; the file provider reads it.
+    # A state directory survives rebuilds, so the key stays stable.
+    systemd.services.mothership-grafana-secret = {
+      description = "Generate Grafana signing key on first boot";
+      before = [ "grafana.service" ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "grafana";
+        Group = "grafana";
+        StateDirectory = "mothership/grafana";
+        StateDirectoryMode = "0750";
+        UMask = "0077";
+      };
+      script = ''
+        if [ ! -s ${cfg.secretKeyFile} ]; then
+          ${lib.getExe pkgs.openssl} rand -hex 32 > ${cfg.secretKeyFile}
+        fi
+      '';
+    };
+
+    systemd.services.grafana = {
+      requires = [ "mothership-grafana-secret.service" ];
+      after = [ "mothership-grafana-secret.service" ];
+    };
+
     services.grafana = {
       enable = true;
+      settings.security.secret_key = "$__file{${cfg.secretKeyFile}}";
       settings.server = {
         http_addr = "127.0.0.1";
         http_port = cfg.grafanaPort;

@@ -27,6 +27,12 @@ Four native services run on mothership itself, not inside a member VM:
 All four listen on `127.0.0.1` only. They are not reachable from the internet
 or from the mesh, so there is no new public port and no login to manage.
 
+Grafana needs a signing key, but it is **not in git**. A small oneshot service
+generates it on the first boot and keeps it in
+`/var/lib/mothership/grafana/secret_key`, outside the world-readable Nix
+store. It survives rebuilds, so saved Grafana settings keep working. Deleting
+that file makes Grafana generate a new key on the next boot.
+
 ## Looking at it
 
 As an admin, forward the port through the server:
