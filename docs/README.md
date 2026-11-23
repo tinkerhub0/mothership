@@ -15,7 +15,8 @@ order. Each page takes about five minutes.
 | 8 | [The space's firewall](house-firewall.md) | the XGS firewall, configured from git |
 | 9 | [DNS](dns.md) | every public name, managed from git |
 | 10 | [Running NixOS on Hetzner](hetzner.md) | our front door VPS, reusable for your own project |
-| 11 | [Drills](drills.md) | breaking it on purpose and timing the comeback |
+| 11 | [Host monitoring](monitoring.md) | host and per-VM resource charts over SSH |
+| 12 | [Drills](drills.md) | breaking it on purpose and timing the comeback |
 
 ## The one rule
 

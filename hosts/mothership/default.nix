@@ -27,6 +27,7 @@ in
     ../../modules/admins.nix
     ../../modules/tools.nix
     ../../modules/deck
+    ../../modules/monitoring
     ../../modules/mesh
     ../../modules/microvms
     ../../modules/bastion.nix
@@ -71,6 +72,8 @@ in
   # fleet monitoring on the host (native service, not a microVM)
   # public: https://status.tharavad.xyz via edge status-proxy
   mothership.deck.uptimeKuma.enable = true;
+
+  mothership.monitoring.enable = true;
 
   # member VMs: user-vms/*.nix
   # public: ssh you@you.<domain> via edge bastion; mesh is internal only
