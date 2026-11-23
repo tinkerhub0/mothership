@@ -3,6 +3,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -75,6 +76,8 @@ in
   # member VMs: user-vms/*.nix
   # public: ssh you@you.<domain> via edge bastion; mesh is internal only
   mothership.microvms.enable = true;
+  environment.systemPackages = [ pkgs.microvmctl ];
+
   microvm.vms = lib.mkIf (config.mothership.microvms.enabledMembers ? omnibox) {
     omnibox.extraModules = [ ../../modules/guests/omnibox-nix-state.nix ];
   };

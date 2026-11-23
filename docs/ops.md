@@ -1,6 +1,6 @@
 # Operating it
 
-> **Source of truth:** `lib/adminKeys.nix` · `modules/admins.nix` · `modules/base.nix`
+> **Source of truth:** `lib/adminKeys.nix` · `modules/admins.nix` · `modules/base.nix` · `hosts/mothership/default.nix` · `flake.lock`
 
 For admins. Members don't need any of this.
 
@@ -32,6 +32,29 @@ journalctl -fu mothership-git-sync          # deploys, live
 ip -br a                                    # network interfaces
 sudo nix shell nixpkgs#ipmitool -c ipmitool dcmi power reading   # watts
 ```
+
+## Inspecting VMs
+
+Run [microvmctl](https://github.com/mantoine96/microvmctl) on mothership.
+Replace `VM` with the name shown by `microvmctl list`.
+
+```bash
+microvmctl                       # live, interactive terminal view
+microvmctl list                  # VM state, uptime, memory and guest address
+microvmctl top                   # live CPU and memory use
+microvmctl status VM             # running system and pending update
+microvmctl logs VM -f            # follow the VM's logs
+```
+
+Start with the commands above as your normal user. Use `sudo microvmctl top`
+for disk and network rates. Use `sudo microvmctl status VM` for details such
+as shared folders and whether the VM is paused. These details and the
+`pause` and `resume` commands need access to the private socket used by
+cloud-hypervisor, the program that runs the VMs.
+
+The `console` and `ssh` commands also need guest settings. `console` needs
+an interactive console, and `ssh` needs SSH over vsock (a direct
+host-to-guest connection). For normal SSH, see [Getting a machine](join.md).
 
 ## Undoing a bad change
 

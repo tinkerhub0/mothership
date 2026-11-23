@@ -14,6 +14,10 @@
 
     microvm.url = "github:microvm-nix/microvm.nix";
     microvm.inputs.nixpkgs.follows = "nixpkgs";
+
+    microvmctl.url = "github:mantoine96/microvmctl";
+    microvmctl.inputs.nixpkgs.follows = "nixpkgs";
+    microvmctl.inputs.microvm.follows = "microvm";
   };
 
   outputs =
@@ -24,6 +28,7 @@
       disko,
       nixos-facter-modules,
       microvm,
+      microvmctl,
       ...
     }:
     let
@@ -57,6 +62,7 @@
           disko.nixosModules.disko
           nixos-facter-modules.nixosModules.facter
           microvm.nixosModules.host
+          { nixpkgs.overlays = [ microvmctl.overlays.default ]; }
           ./hosts/mothership
         ];
       };
