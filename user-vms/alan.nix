@@ -4,6 +4,8 @@
   github = "shadowe1ite";
   tier = "large";
   enabled = true;
+  linger = true;
+  nixLd = true;
   keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIISphsrkjAO6UwgKDVyiLJcyZU+Ar/6ZC2bd+IFp2TLP"
   ];
