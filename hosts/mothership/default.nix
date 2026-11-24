@@ -29,6 +29,7 @@ in
     ../../modules/deck
     ../../modules/mesh
     ../../modules/microvms
+    ../../modules/microvmctl.nix
     ../../modules/bastion.nix
     ../../modules/member-publish.nix
     ../../modules/git-sync.nix
@@ -75,6 +76,10 @@ in
   # member VMs: user-vms/*.nix
   # public: ssh you@you.<domain> via edge bastion; mesh is internal only
   mothership.microvms.enable = true;
+
+  # live per-VM inspector for operators (not installed on edge)
+  mothership.microvmctl.enable = true;
+
   microvm.vms = lib.mkIf (config.mothership.microvms.enabledMembers ? omnibox) {
     omnibox.extraModules = [ ../../modules/guests/omnibox-nix-state.nix ];
   };

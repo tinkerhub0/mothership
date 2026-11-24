@@ -33,6 +33,8 @@ ip -br a                                    # network interfaces
 sudo nix shell nixpkgs#ipmitool -c ipmitool dcmi power reading   # watts
 ```
 
+For a live view of every member VM, see [Inspecting member VMs](vm-inspection.md).
+
 ## Undoing a bad change
 
 ```bash
