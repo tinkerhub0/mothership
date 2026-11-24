@@ -1,0 +1,21 @@
+# sops rules. recipients = the people in lib/adminKeys.nix (not machine keys);
+# nix flake check fails if this drifts. decrypt with your own ssh key.
+{
+  "creation_rules": [
+    {
+      "path_regex": "^secrets/[^/]+\\.sops\\.(yaml|json)$",
+      "key_groups": [
+        {
+          "age": [
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPgJj9GEaxD16KIwrB0M9qxeaFy33iCuCo99Jm/dxbkO",
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEfCFpZCX3ZtQg6kLK9cbtMj7V+75/f4VJt+ztTDFkNL",
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAjUI8xR62zvnfBKoJ/S5UcBE8/5A+jyqppDLWOgpikg",
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMckfpjGyg3/Hx7Xu0racB/V/PlaY5TvmHQdkLC2y90G",
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHPykkjdk3kXfGgRKAllnOse/ez5lU47eGppXuwYmjMH",
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMBNY5v1oHYzbABmqJQBzUbaV31/8byXRmD9vGHoADPC"
+          ]
+        }
+      ]
+    }
+  ]
+}

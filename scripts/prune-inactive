@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""prune-inactive — warn, park, then delete seats nobody uses.
+
+inactive = no ssh login AND no real work inside the VM (see member-activity).
+the clock starts when the VM first ran, never earlier.
+
+  warn    after WARN days   one comment on the "inactive seats" issue, @-mentioning them
+  park    after PARK days   one PR setting enabled = false (VM stops, file + disk stay)
+  delete  parked DELETE days later   one PR deleting user-vms/<name>.nix
+
+nothing is changed directly: every park/delete is a PR a human merges.
+the member logging in (or merging enabled = true again) resets everything.
+
+env:
+  PRUNE_ACTIVITY    activity.json (default /var/lib/mothership/activity/activity.json)
+  PRUNE_SRC         repo checkout (default /var/lib/mothership/src)
+  PRUNE_STATE       state dir (default /var/lib/mothership/activity)
+  PRUNE_TOKEN_FILE  github token (default /var/lib/mothership/git-sync/github-token)
+  PRUNE_REPO        owner/repo (default tinkerhub0/mothership)
+  PRUNE_WARN_DAYS / PRUNE_PARK_DAYS / PRUNE_DELETE_DAYS   (7 / 10 / 30)
+  PRUNE_EXEMPT      space-separated names never pruned (house/service seats)
+  PRUNE_DRY_RUN=1   decide and print, write nothing (also the mode without a token)
+"""
+
+import base64
+import datetime as dt
+import json
+import os
+import re
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+ENV = os.environ.get
+ACTIVITY = ENV("PRUNE_ACTIVITY", "/var/lib/mothership/activity/activity.json")
+SRC = ENV("PRUNE_SRC", "/var/lib/mothership/src")
+STATE = ENV("PRUNE_STATE", "/var/lib/mothership/activity")
+TOKEN_FILE = ENV("PRUNE_TOKEN_FILE", "/var/lib/mothership/git-sync/github-token")
+REPO = ENV("PRUNE_REPO", "tinkerhub0/mothership")
+WARN = int(ENV("PRUNE_WARN_DAYS", "7"))
+PARK = int(ENV("PRUNE_PARK_DAYS", "10"))
+DELETE = int(ENV("PRUNE_DELETE_DAYS", "30"))
+EXEMPT = set(ENV("PRUNE_EXEMPT", "").split())
+DOMAIN = ENV("PRUNE_DOMAIN", "tharavad.xyz")
+
+NOW = dt.datetime.now(dt.timezone.utc)
+ISSUE_TITLE = "inactive seats"
+LABEL = "inactive"
+
+
+def log(msg):
+    print(f"{NOW:%Y-%m-%dT%H:%M:%SZ} prune: {msg}", file=sys.stderr)
+
+
+try:
+    TOKEN = open(TOKEN_FILE).read().strip()
+except OSError:
+    TOKEN = ""
+DRY = ENV("PRUNE_DRY_RUN") == "1" or not TOKEN
+
+
+def api(method, path, body=None):
+    """github REST. GETs run even in dry-run (anonymous without a token)."""
+    if DRY and method != "GET":
+        print(f"--- DRY {method} {path}\n{json.dumps(body, indent=2) if body else ''}")
+        return {}
+    req = urllib.request.Request(
+        f"https://api.github.com{path}",
+        method=method,
+        data=json.dumps(body).encode() if body is not None else None,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            **({"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}),
+        },
+    )
+    with urllib.request.urlopen(req, timeout=20) as r:
+        raw = r.read()
+        return json.loads(raw) if raw else {}
+
+
+def ts(s):
+    return dt.datetime.fromisoformat(s.replace("Z", "+00:00")) if s else None
+
+
+def member_file(name):
+    with open(f"{SRC}/user-vms/{name}.nix", encoding="utf-8") as f:
+        return f.read()
+
+
+def github_of(text):
+    m = re.search(r'^\s*github\s*=\s*"([^"]+)"', text, re.M)
+    return m.group(1) if m else None
+
+
+def parked_since(name):
+    """commit date of the change that set enabled = false, or None."""
+    out = subprocess.run(
+        ["git", "-C", SRC, "log", "-1", "--format=%cI", "-G", r"enabled\s*=\s*false", "--",
+         f"user-vms/{name}.nix"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+    return ts(out)
+
+
+def mention(name, text):
+    gh = github_of(text)
+    return f"@{gh} (`{name}`)" if gh else f"`{name}`"
+
+
+def state_path(*parts):
+    p = os.path.join(STATE, "prune", *parts)
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    return p
+
+
+# --- decide -------------------------------------------------------------------
+activity = json.load(open(ACTIVITY))
+files = sorted(f[:-4] for f in os.listdir(f"{SRC}/user-vms")
+               if f.endswith(".nix") and f != "template.nix")
+
+warn, park, delete = [], [], []
+for name in files:
+    if name in EXEMPT:
+        continue
+    text = member_file(name)
+    enabled = not re.search(r"^\s*enabled\s*=\s*false\s*;", text, re.M)
+
+    if not enabled:
+        since = parked_since(name)
+        if since and (NOW - since).days >= DELETE:
+            delete.append((name, (NOW - since).days, text))
+        continue
+
+    a = activity.get(name)
+    if not a or not a.get("first_seen"):
+        continue  # never ran: nothing to judge yet
+    last = max(t for t in (ts(a["first_seen"]), ts(a.get("last_ssh")), ts(a.get("last_vm"))) if t)
+    idle = (NOW - last).days
+    marker = state_path("warned", name)
+    if idle < WARN:
+        if os.path.exists(marker) and not DRY:
+            os.remove(marker)  # back in use: next streak gets a fresh warning
+        continue
+    warned = os.path.exists(marker) and open(marker).read().strip() == last.isoformat()
+    if not warned:
+        # always warn first, even if we missed the window (box down, prune off):
+        # nobody gets parked without notice
+        warn.append((name, idle, text, last))
+    elif idle >= PARK and (NOW - dt.datetime.fromtimestamp(os.path.getmtime(marker), dt.timezone.utc)).days >= PARK - WARN:
+        park.append((name, idle, text))
+
+log(f"warn={[w[0] for w in warn]} park={[p[0] for p in park]} delete={[d[0] for d in delete]}"
+    + (" (dry run)" if DRY else ""))
+
+
+# --- act ------------------------------------------------------------------------
+def open_prune_prs():
+    """member names already in an open prune/* PR, so reruns don't duplicate."""
+    names = set()
+    for pr in api("GET", f"/repos/{REPO}/pulls?state=open&per_page=100"):
+        if pr["head"]["ref"].startswith("prune/"):
+            names |= set(re.findall(r"user-vms/([a-z0-9-]+)\.nix", pr.get("body") or ""))
+    return names
+
+
+def tracking_issue():
+    q = f"repo:{REPO} is:issue is:open label:{LABEL} in:title \"{ISSUE_TITLE}\""
+    found = api("GET", "/search/issues?q=" + urllib.parse.quote(q)).get("items", [])
+    if found:
+        return found[0]["number"]
+    try:
+        api("POST", f"/repos/{REPO}/labels", {"name": LABEL, "color": "c5def5"})
+    except urllib.error.HTTPError:
+        pass  # label exists
+    made = api("POST", f"/repos/{REPO}/issues", {
+        "title": ISSUE_TITLE, "labels": [LABEL],
+        "body": f"seats with no ssh login and no activity inside the VM.\n\n"
+                f"warned at {WARN} days, parked (PR: `enabled = false`) at {PARK}, "
+                f"deleted (PR) {DELETE} days after parking. log in to reset the clock.",
+    })
+    return made.get("number", "?")
+
+
+def pr_with_changes(kind, members, change):
+    """one branch from main, one commit per file via the contents api, one PR."""
+    base = api("GET", f"/repos/{REPO}/git/ref/heads/main")["object"]["sha"]
+    branch = f"prune/{kind}-{NOW:%Y-%m-%d}"
+    api("POST", f"/repos/{REPO}/git/refs", {"ref": f"refs/heads/{branch}", "sha": base})
+    for name, days, text in members:
+        path = f"user-vms/{name}.nix"
+        sha = api("GET", f"/repos/{REPO}/contents/{path}?ref=main")["sha"]
+        change(path, sha, text, branch, name, days)
+    lines = "\n".join(f"- {mention(n, t)}: `user-vms/{n}.nix`, {d} days" for n, d, t in members)
+    if kind == "park":
+        title = f"park inactive seats: {', '.join(n for n, _, _ in members)}"
+        body = (f"no ssh login and no activity inside the VM for {PARK}+ days:\n\n{lines}\n\n"
+                f"merging sets `enabled = false`: the VM stops, the name, file and disk stay. "
+                f"to come back, open a PR setting `enabled = true;`.\n\n"
+                f"_{DELETE} days after this merges, the seat gets a delete PR._")
+    else:
+        title = f"delete parked seats: {', '.join(n for n, _, _ in members)}"
+        body = (f"parked for {DELETE}+ days:\n\n{lines}\n\n"
+                f"merging deletes the member file. **their VM disk is lost.** "
+                f"close this PR to keep a seat parked.")
+    pr = api("POST", f"/repos/{REPO}/pulls", {"title": title, "head": branch, "base": "main", "body": body})
+    log(f"{kind} PR {pr.get('html_url', '(dry run)')}")
+
+
+def set_parked(path, sha, text, branch, name, days):
+    new = (re.sub(r"^(\s*)enabled\s*=\s*true\s*;", r"\1enabled = false;", text, count=1, flags=re.M)
+           if re.search(r"^\s*enabled\s*=", text, re.M)
+           else text.replace("{", "{\n  enabled = false;", 1))
+    api("PUT", f"/repos/{REPO}/contents/{path}", {
+        "message": f"park {name}: inactive {days} days", "branch": branch, "sha": sha,
+        "content": base64.b64encode(new.encode()).decode(),
+    })
+
+
+def remove(path, sha, text, branch, name, days):
+    api("DELETE", f"/repos/{REPO}/contents/{path}", {
+        "message": f"delete {name}: parked {days} days", "branch": branch, "sha": sha,
+    })
+
+
+try:
+    pending = open_prune_prs()
+    park = [m for m in park if m[0] not in pending]
+    delete = [m for m in delete if m[0] not in pending]
+
+    if warn:
+        issue = tracking_issue()
+        lines = "\n".join(
+            f"- {mention(n, t)}: idle {d} days. parked in {max(PARK - d, PARK - WARN)} days unless you "
+            f"`ssh {n}@{n}.{DOMAIN}` or use the VM." for n, d, t, _ in warn)
+        api("POST", f"/repos/{REPO}/issues/{issue}/comments", {"body": f"heads up:\n\n{lines}"})
+        if not DRY:
+            for n, _, _, last in warn:
+                open(state_path("warned", n), "w").write(last.isoformat())
+    if park:
+        pr_with_changes("park", park, set_parked)
+    if delete:
+        pr_with_changes("delete", delete, remove)
+except (urllib.error.URLError, KeyError, ValueError) as e:
+    log(f"github error, nothing more done this run: {e}")

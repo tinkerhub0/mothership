@@ -41,6 +41,29 @@
         "type": "github"
       }
     },
+    "microvmctl": {
+      "inputs": {
+        "microvm": [
+          "microvm"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1795232165,
+        "narHash": "sha256-1/lh03eovyf7U7anGcb3ropejd6q9u/GXYPku0LEJ94=",
+        "owner": "mantoine96",
+        "repo": "microvmctl",
+        "rev": "d6b127c1ef55567129d0ce6017afc2439830a8dd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mantoine96",
+        "repo": "microvmctl",
+        "type": "github"
+      }
+    },
     "nixos-facter-modules": {
       "locked": {
         "lastModified": 1773858690,
@@ -76,6 +99,7 @@
       "inputs": {
         "disko": "disko",
         "microvm": "microvm",
+        "microvmctl": "microvmctl",
         "nixos-facter-modules": "nixos-facter-modules",
         "nixpkgs": "nixpkgs",
         "srvos": "srvos"

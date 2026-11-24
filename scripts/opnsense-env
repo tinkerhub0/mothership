@@ -1,0 +1,28 @@
+# sourced by the opnsense-* scripts: credentials + curl tls flags for one fw.
+# env wins; otherwise secrets/<fw>.sops.yaml, decrypted with your ssh key.
+# usage: . scripts/opnsense-env <fw>
+
+_fw="$1"
+_sops_file="$repo_root/secrets/${_fw}.sops.yaml"
+
+_sops_get() {
+  SOPS_AGE_SSH_PRIVATE_KEY_FILE="${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-$HOME/.ssh/id_ed25519}" \
+    sops decrypt --extract "[\"$1\"]" "$_sops_file"
+}
+
+if [[ -z "${OPNSENSE_KEY:-}" || -z "${OPNSENSE_SECRET:-}" ]]; then
+  if [[ ! -f "$_sops_file" ]]; then
+    echo "no credentials: set OPNSENSE_KEY/OPNSENSE_SECRET or add $_sops_file" >&2
+    exit 1
+  fi
+  command -v sops >/dev/null || { echo "sops not found — run inside nix develop" >&2; exit 1; }
+  OPNSENSE_KEY="$(_sops_get opnsense_key)"
+  OPNSENSE_SECRET="$(_sops_get opnsense_secret)"
+  OPNSENSE_URL="${OPNSENSE_URL:-$(_sops_get opnsense_url)}"
+fi
+
+url="${OPNSENSE_URL:-https://192.168.12.1}"
+tls=(-k)
+if [[ -n "${OPNSENSE_CA:-}" ]]; then
+  tls=(--cacert "$OPNSENSE_CA")
+fi

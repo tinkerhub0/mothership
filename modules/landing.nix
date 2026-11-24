@@ -8,6 +8,13 @@
 let
   cfg = config.mothership.landing;
   site = pkgs.callPackage ../sites/tharavad/package.nix { };
+
+  # residents roster, straight from user-vms/ — the house page fetches it,
+  # so joining shows up on the site without rebuilding dist/
+  members = import ../lib/loadMembers.nix { inherit lib; };
+  seats = pkgs.writeText "seats.json" (
+    builtins.toJSON (lib.attrNames (lib.filterAttrs (_: m: m.enabled or true) members))
+  );
 in
 {
   options.mothership.landing = {
@@ -28,6 +35,14 @@ in
         forceSSL = true;
         enableACME = true;
         root = "${site}";
+        locations."= /house/seats.json" = {
+          alias = "${seats}";
+          extraConfig = ''
+            default_type application/json;
+            add_header Cache-Control "no-cache" always;
+            add_header X-Content-Type-Options nosniff always;
+          '';
+        };
         locations."/" = {
           tryFiles = "$uri $uri/index.html $uri/ =404";
           extraConfig = ''

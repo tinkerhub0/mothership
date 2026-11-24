@@ -44,6 +44,16 @@ let
       b = i: builtins.substring i 2 h;
     in
     "02:${b 0}:${b 2}:${b 4}:${b 6}:${b 8}";
+
+  # stable v4 on br-members, pinned by a static DHCP lease. 10.43.1-254.1-254,
+  # clear of the host (.0.1) and the dynamic pool (.0.11-.0.210).
+  # collisions are rejected in modules/microvms/isolation.nix.
+  ip =
+    let
+      h = builtins.hashString "sha256" memberName;
+      octet = i: toString (1 + lib.mod (lib.fromHexString (builtins.substring i 2 h)) 254);
+    in
+    "10.43.${octet 10}.${octet 12}";
 in
 {
   inherit
@@ -56,6 +66,7 @@ in
     publishPorts
     tapId
     mac
+    ip
     ;
 
   assertions = [
@@ -72,6 +83,8 @@ in
       ...
     }:
     {
+      programs.nix-ld.enable = member.nixLd or false;
+
       microvm = {
         hypervisor = "cloud-hypervisor";
         vcpu = tier.vcpu;
@@ -177,6 +190,7 @@ in
       # member account = hostname → ssh alvin@alvin
       users.users.${memberName} = {
         isNormalUser = true;
+        linger = member.linger or false;
         extraGroups = [ "wheel" ];
         openssh.authorizedKeys.keys = keys;
       };

@@ -1,0 +1,38 @@
+# dns/*.nix → hetzner DNS. PR: show the diff. merge to main: apply.
+# needs repo secret HETZNER_TOKEN (a hetzner cloud api token, dns scope).
+name: dns
+on:
+  pull_request:
+    paths: [dns/**, lib/site.nix, flake.nix, flake.lock, .github/workflows/dns.yml]
+  push:
+    branches: [main]
+    paths: [dns/**, lib/site.nix, flake.nix, flake.lock, .github/workflows/dns.yml]
+concurrency: dns
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      HETZNER_TOKEN: ${{ secrets.HETZNER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: cachix/install-nix-action@v31.11.3
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: "3.12"
+      - run: pip install octodns==1.22.0 octodns-hetzner==3.0.0
+      - name: render zones from nix
+        run: |
+          mkdir -p dns/zones
+          nix eval --json '.#dns.zones."tharavad.xyz"' > 'dns/zones/tharavad.xyz.yaml'
+          cat 'dns/zones/tharavad.xyz.yaml'
+      - name: plan
+        if: env.HETZNER_TOKEN != ''
+        working-directory: dns
+        run: octodns-sync --config-file octodns.yaml
+      - name: apply
+        if: env.HETZNER_TOKEN != '' && github.event_name == 'push'
+        working-directory: dns
+        run: octodns-sync --config-file octodns.yaml --doit
+      - name: no token
+        if: env.HETZNER_TOKEN == ''
+        run: echo "::warning::HETZNER_TOKEN not set; rendered only, nothing planned or applied"

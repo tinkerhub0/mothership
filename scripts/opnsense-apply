@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# opnsense-apply — make the firewall match hosts/<fw>/default.nix over the
+# opnsense api. plan by default; --apply writes. never deletes: things on the
+# box that git does not name are listed, not touched. no state file — the box
+# is the state, items are matched by name/description.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$repo_root"
+
+usage() {
+  cat <<'EOF'
+usage: scripts/opnsense-apply [--fw tharavadmathil] [--apply [--interfaces]]
+
+  --apply       write what the plan shows (interfaces excepted)
+  --interfaces  also write interface changes. these can cut the link you are
+                running this over — have the console ready.
+
+credentials: from secrets/<fw>.sops.yaml (decrypted with your ssh key, see
+.sops.yaml), or from env, which wins:
+  OPNSENSE_URL     default https://192.168.12.1
+  OPNSENSE_KEY     api key of the restricted `mothership` user
+  OPNSENSE_SECRET  api secret
+  OPNSENSE_CA      optional ca/cert file to verify the gui certificate;
+                   without it the self-signed cert is accepted (-k)
+
+run from the house lan. plan first, read it, then --apply.
+EOF
+  exit 1
+}
+
+fw="tharavadmathil"
+apply=0
+interfaces=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --fw) fw="${2:-}"; shift 2 ;;
+    --apply) apply=1; shift ;;
+    --interfaces) interfaces=1; shift ;;
+    -h|--help) usage ;;
+    *) echo "unknown arg: $1" >&2; usage ;;
+  esac
+done
+
+# shellcheck source=scripts/opnsense-env
+. "$repo_root/scripts/opnsense-env" "$fw"
+
+desired="$(nix eval --json ".#opnsense.${fw}.resources")"
+
+api() {
+  local method="$1" path="$2" body="${3:-}"
+  local args=(-sS --fail-with-body "${tls[@]}" -X "$method" "$url/api/$path" -K -)
+  if [[ -n "$body" ]]; then
+    args+=(-H 'Content-Type: application/json' -d "$body")
+  elif [[ "$method" == POST ]]; then
+    args+=(-H 'Content-Type: application/json' -d '{}')
+  fi
+  # credentials via stdin config: never on the command line (ps, error echoes)
+  printf 'user = "%s:%s"\n' "$OPNSENSE_KEY" "$OPNSENSE_SECRET" | curl "${args[@]}"
+}
+
+# getItem answers option fields as {key: {value, selected}}; flatten them to
+# the selected keys so they compare against plain strings from nix.
+flatten='with_entries(.value |= (if type == "object" then ([to_entries[] | select(.value.selected == 1) | .key] | join(",")) else (. // "" | tostring) end))'
+
+changed_apis=()
+held=0
+count="$(jq length <<<"$desired")"
+
+for ((i = 0; i < count; i++)); do
+  res="$(jq -c ".[$i]" <<<"$desired")"
+  kind="$(jq -r .kind <<<"$res")"
+  wrap="$(jq -r .api.wrap <<<"$res")"
+  label="$(jq -r '.match | to_entries | map("\(.key)=\(.value)") | join(" ")' <<<"$res")"
+
+  uuids="$(api POST "$(jq -r .api.search <<<"$res")" '{"current":1,"rowCount":-1}' | jq -r '.rows[].uuid')"
+  found=""
+  live="{}"
+  for u in $uuids; do
+    # rules opnsense generates itself answer getRule with [] — not ours, skip
+    cand="$(api GET "$(jq -r .api.get <<<"$res")/$u" | jq -c --arg w "$wrap" "if type == \"object\" and (.[\$w] | type) == \"object\" then .[\$w] | ${flatten} else empty end")"
+    [[ -n "$cand" ]] || continue
+    if jq -e --argjson m "$(jq -c .match <<<"$res")" --arg family "$(jq -r '.family // ""' <<<"$res")" \
+      '. as $l | ($m | to_entries | all(.value == $l[.key])) and ($family == "" or (($l.start_addr | contains(":")) == ($family == "inet6")))' \
+      <<<"$cand" >/dev/null; then
+      found="$u"
+      live="$cand"
+      break
+    fi
+  done
+
+  # multi-value fields come back comma-joined, nix writes them one per line
+  diff="$(jq -c --argjson live "$live" 'def n: tostring | gsub("\n"; ","); .fields | to_entries | map(select((.value | n) != (($live[.key] // "") | n))) | map({key, want: .value, have: ($live[.key] // null)})' <<<"$res")"
+
+  if [[ -z "$found" ]]; then
+    echo "+ $kind $label (new)"
+    jq -r '.[] | "    \(.key) = \(.want)"' <<<"$diff"
+  elif [[ "$(jq length <<<"$diff")" -gt 0 ]]; then
+    echo "~ $kind $label"
+    jq -r '.[] | "    \(.key): \(.have) → \(.want)"' <<<"$diff"
+  else
+    echo "  $kind $label"
+    continue
+  fi
+
+  if [[ "$apply" == 1 && "$kind" == iface && "$interfaces" == 0 ]]; then
+    echo "    held: interface change — rerun with --apply --interfaces"
+    held=1
+    continue
+  fi
+
+  if [[ "$apply" == 1 ]]; then
+    body="$(jq -c --arg w "$wrap" '{($w): .fields}' <<<"$res")"
+    if [[ -z "$found" ]]; then
+      out="$(api POST "$(jq -r .api.add <<<"$res")" "$body")"
+    else
+      out="$(api POST "$(jq -r .api.set <<<"$res")/$found" "$body")"
+    fi
+    if [[ "$(jq -r .result <<<"$out")" != saved ]]; then
+      echo "    refused: $out" >&2
+      exit 1
+    fi
+    a="$(jq -r .api.apply <<<"$res")"
+    [[ " ${changed_apis[*]-} " == *" $a "* ]] || changed_apis+=("$a")
+  fi
+done
+
+# reload in resource order: interfaces before the gateways that sit on them
+if [[ "$apply" == 1 && ${#changed_apis[@]} -gt 0 ]]; then
+  for a in "${changed_apis[@]}"; do
+    echo "apply $a: $(api POST "$a" | jq -c .)"
+  done
+elif [[ "$apply" == 0 ]]; then
+  echo
+  echo "plan only. --apply to write (interfaces also need --interfaces)."
+fi
+if [[ "$held" == 1 ]]; then
+  echo "interface changes held back; nothing on them was written." >&2
+fi

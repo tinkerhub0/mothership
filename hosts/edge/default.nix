@@ -27,6 +27,17 @@
   networking.hostName = "edge";
   networking.hostId = "e5a1c0de";
 
+  # Wildcard DNS also reaches us for members without a published website.
+  services.nginx.virtualHosts."unconfigured" = {
+    default = true;
+    serverName = "_";
+    rejectSSL = true;
+    locations."/".extraConfig = ''
+      default_type text/plain;
+      return 404 "No website configured for this hostname.\n";
+    '';
+  };
+
   networking.usePredictableInterfaceNames = false; # keep eth0 like rescue
   networking.useDHCP = false;
   networking.interfaces.eth0.useDHCP = true;

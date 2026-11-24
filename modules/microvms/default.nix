@@ -55,8 +55,21 @@ let
   githubDupMsgs = policy.duplicateGithubs members;
 in
 {
+  imports = [
+    ./isolation.nix
+    ./activity.nix
+  ];
+
   options.mothership.microvms = {
     enable = lib.mkEnableOption "per-member microVMs from user-vms/";
+
+    # read by isolation.nix; not for hosts to set
+    enabledMembers = lib.mkOption {
+      type = lib.types.attrs;
+      internal = true;
+      readOnly = true;
+      default = enabledMembers;
+    };
 
     maxTotalMemMiB = lib.mkOption {
       type = lib.types.ints.positive;
@@ -121,6 +134,11 @@ in
         EmitDNS = true;
         DNS = [ cfg.bridgeAddress ];
       };
+      # one fixed address per member (lib/mkMemberVM.nix ip)
+      dhcpServerStaticLeases = lib.mapAttrsToList (_: m: {
+        MACAddress = m.mac;
+        Address = m.ip;
+      }) enabledMembers;
     };
 
     networking.firewall.trustedInterfaces = [
@@ -239,7 +257,7 @@ in
       lib.concatStringsSep "\n" (
         lib.mapAttrsToList (
           name: m:
-          "${name}\ttier=${m.tierName}\tmem=${toString m.tier.mem}M\tvcpu=${toString m.tier.vcpu}\tquota=${m.tier.refquota}\ttap=${m.tapId}\tmac=${m.mac}\tenabled=${
+          "${name}\ttier=${m.tierName}\tmem=${toString m.tier.mem}M\tvcpu=${toString m.tier.vcpu}\tquota=${m.tier.refquota}\ttap=${m.tapId}\tmac=${m.mac}\tip=${m.ip}\tenabled=${
             if m.enabled then "yes" else "no"
           }${lib.optionalString (m.github != null) "\tgithub=${m.github}"}"
         ) members

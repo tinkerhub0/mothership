@@ -20,7 +20,9 @@ let
         [
           pkgs.bash
           pkgs.coreutils
+          pkgs.curl
           pkgs.git
+          pkgs.jq
           pkgs.util-linux
           pkgs.gawk
           pkgs.gnugrep
@@ -38,6 +40,8 @@ let
     export SYNC_FLAKE="${cfg.flakeHost}"
     export SYNC_STATE="${cfg.stateDir}"
     export SYNC_TRIGGER_EDGE="${if cfg.triggerEdge.enable then "1" else "0"}"
+    export SYNC_NOTIFY="${../scripts/deploy-notify}"
+    export SYNC_NOTIFY_TOKEN_FILE="${cfg.notify.tokenFile}"
     export SYNC_EDGE_HOST="${cfg.triggerEdge.host}"
     ${lib.optionalString (cfg.triggerEdge.identityFile != null) ''
       export SYNC_EDGE_IDENTITY="${cfg.triggerEdge.identityFile}"
@@ -98,6 +102,16 @@ in
       default = "30s";
     };
 
+    # deploy results → github (commit status, PR comments, a "deploy broken"
+    # issue). no token file = no notifications; deploys work either way.
+    # install: scripts/install-github-token
+    notify.tokenFile = lib.mkOption {
+      type = lib.types.str;
+      default = "${cfg.stateDir}/github-token";
+      defaultText = lib.literalExpression ''"''${config.mothership.gitSync.stateDir}/github-token"'';
+      description = "github token for scripts/deploy-notify (root 0600, not in git)";
+    };
+
     triggerEdge = {
       enable = lib.mkEnableOption "after mothership sync, SSH-start edge-git-sync when edge paths changed";
 
@@ -145,10 +159,17 @@ in
         "nix-daemon.service"
       ];
       wants = [ "network-online.target" ];
+      # this unit runs the switch. if a switch restarts it, the run that
+      # started the switch dies, never records success, and the next run
+      # collides with the switch still in flight.
+      restartIfChanged = false;
+      stopIfChanged = false;
       path = with pkgs; [
         bash
         coreutils
+        curl
         git
+        jq
         util-linux
         gawk
         gnugrep
@@ -196,6 +217,7 @@ in
       edge:       user-vms + bastion/publish/landing/front-door/sites → rebuild
       mothership may SSH-start edge-git-sync when edge paths change
 
+      notify:   ${cfg.notify.tokenFile} (github token; missing = quiet)
       journal: journalctl -u ${unit} -f
       manual:  ${binName}
     '';

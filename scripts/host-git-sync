@@ -12,6 +12,8 @@
 #   SYNC_TRIGGER_EDGE=1          mothership only: kick edge after edge-relevant change
 #   SYNC_EDGE_HOST               e.g. root@10.99.0.1
 #   SYNC_EDGE_IDENTITY           optional ssh -i path
+#   SYNC_NOTIFY                  deploy-notify script (default: next to this one)
+#   SYNC_NOTIFY_TOKEN_FILE       github token for deploy-notify (missing → no notifications)
 set -euo pipefail
 
 ROLE="${SYNC_ROLE:-mothership}"
@@ -25,6 +27,7 @@ DRY="${SYNC_DRY_RUN:-0}"
 TRIGGER_EDGE="${SYNC_TRIGGER_EDGE:-0}"
 EDGE_HOST="${SYNC_EDGE_HOST:-root@10.99.0.1}"
 EDGE_IDENTITY="${SYNC_EDGE_IDENTITY:-}"
+NOTIFY="${SYNC_NOTIFY:-$(dirname "$0")/deploy-notify}"
 
 # back-compat with old mothership-git-sync env names
 SRC="${MOTHERSHIP_SRC:-$SRC}"
@@ -69,8 +72,18 @@ fi
 cd "$SRC"
 git remote set-url origin "$REMOTE" 2>/dev/null || git remote add origin "$REMOTE"
 
-OLD="$(git rev-parse HEAD)"
-log "fetch origin/$BRANCH (at $OLD)"
+# base = last commit actually applied, not HEAD: checkout_origin moves HEAD
+# before the rebuild, so a failed switch would otherwise look done forever.
+APPLIED="${STATE_DIR}/last-applied"
+OLD=""
+for f in "$APPLIED" "${STATE_DIR}/last-success"; do
+  if [[ -s "$f" ]]; then
+    OLD="$(cat "$f")"
+    break
+  fi
+done
+OLD="${OLD:-$(git rev-parse HEAD)}"
+log "fetch origin/$BRANCH (last applied $OLD)"
 if [[ "$DRY" != "1" ]]; then
   git fetch --prune origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
 fi
@@ -111,7 +124,8 @@ is_member_path() {
 is_mothership_fabric() {
   case "$1" in
     hosts/mothership/* | modules/* | lib/* | flake.nix | flake.lock) return 0 ;;
-    scripts/host-git-sync | scripts/mothership-git-sync) return 0 ;;
+    scripts/host-git-sync | scripts/mothership-git-sync | scripts/deploy-notify) return 0 ;;
+    scripts/member-activity | scripts/prune-inactive) return 0 ;; # baked into modules/microvms/activity.nix
     *) return 1 ;;
   esac
 }
@@ -124,7 +138,7 @@ is_edge_fabric() {
     modules/bastion.nix | modules/member-publish.nix | modules/landing.nix) return 0 ;;
     modules/mesh/* | modules/git-sync.nix) return 0 ;;
     sites/*) return 0 ;; # landing dist
-    scripts/host-git-sync | scripts/mothership-git-sync) return 0 ;;
+    scripts/host-git-sync | scripts/mothership-git-sync | scripts/deploy-notify) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -138,7 +152,7 @@ is_edge_relevant() {
 
 is_mothership_irrelevant() {
   case "$1" in
-    hosts/edge/* | sites/* | README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
+    hosts/edge/* | sites/* | dns/* | README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
     scripts/*) return 0 ;;
     *) return 1 ;;
   esac
@@ -147,7 +161,7 @@ is_mothership_irrelevant() {
 is_edge_irrelevant() {
   case "$1" in
     hosts/mothership/* | modules/microvms/* | modules/deck/*) return 0 ;;
-    README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
+    dns/* | README* | why-this-exist | *.md | .github/* | AGENTS.md) return 0 ;;
     user-vms/template.nix) return 0 ;;
     *) return 1 ;;
   esac
@@ -294,6 +308,7 @@ if [[ "$mode" == "skip" ]]; then
   fi
   checkout_origin
   echo "$NEW" >"${STATE_DIR}/last-skip"
+  echo "$NEW" >"$APPLIED"
   # mothership skip (e.g. only sites/) can still need edge
   trigger_edge
   exit 0
@@ -315,9 +330,31 @@ fi
 
 checkout_origin
 
+# tell github how it went. best effort: a notify problem never changes the deploy result.
+notify() {
+  if [[ -f "$NOTIFY" ]]; then
+    local token_file="${SYNC_NOTIFY_TOKEN_FILE:-$STATE_DIR/github-token}"
+    STATE_DIR="$STATE_DIR" NOTIFY_SRC="$SRC" NOTIFY_TOKEN_FILE="$token_file" \
+      timeout 180 bash "$NOTIFY" "$ROLE" "$1" "$NEW" "$OLD" "$REBUILD_LOG" || log "warn: deploy-notify failed (ignored)"
+  fi
+}
+
+REBUILD_LOG="${STATE_DIR}/last-rebuild.log"
+# a switch from an earlier run may still be finishing (it outlives us if we
+# were restarted); starting a second one fails with "already loaded".
+for _ in $(seq 1 90); do
+  [[ -z "$(systemctl list-units --all --no-legend nixos-rebuild-switch-to-configuration.service 2>/dev/null)" ]] && break
+  log "previous switch still running; waiting"
+  sleep 10
+done
+
 log "nixos-rebuild switch --flake ${SRC}#${FLAKE_HOST} (mode=$mode)"
-if ! nixos-rebuild switch --flake "${SRC}#${FLAKE_HOST}"; then
-  die "nixos-rebuild switch failed (HEAD at $NEW)"
+# tee: journal keeps the full stream, the file feeds the failure excerpt (pipefail keeps the exit code)
+if ! nixos-rebuild switch --flake "${SRC}#${FLAKE_HOST}" 2>&1 | tee "$REBUILD_LOG"; then
+  # last-applied stays put → next run diffs from it again and retries
+  echo "$NEW $(date '+%Y-%m-%dT%H:%M:%S%z')" >"${STATE_DIR}/last-failure"
+  notify failure
+  die "nixos-rebuild switch failed (HEAD at $NEW, last applied $OLD; will retry)"
 fi
 
 if [[ "$ROLE" == "mothership" && "$mode" == "member" && ${#member_hits[@]} -gt 0 ]]; then
@@ -342,8 +379,11 @@ if [[ "$ROLE" == "mothership" ]]; then
 fi
 
 echo "$NEW" >"${STATE_DIR}/last-success"
+echo "$NEW" >"$APPLIED"
 echo "$mode" >"${STATE_DIR}/last-mode"
+rm -f "${STATE_DIR}/last-failure"
 log "done mode=$mode at $NEW"
+notify success
 
 # after mothership applied (or even if only edge paths), kick edge for keys/bastion/landing
 trigger_edge

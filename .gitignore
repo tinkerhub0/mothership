@@ -4,6 +4,15 @@ result-*
 .pre-commit-config.yaml
 *.qcow2
 .DS_Store
-secrets/
+# plaintext never; sops-encrypted only (see .sops.yaml)
+secrets/*
+!secrets/*.sops.yaml
+!secrets/*.sops.json
 sites/tharavad/node_modules/
 sites/tharavad/.astro/
+dns/zones/
+
+# local agent/editor config, never part of the repo
+.claude/
+.cursor/
+__pycache__/

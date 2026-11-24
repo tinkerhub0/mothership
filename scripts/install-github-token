@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# install the github token deploy-notify uses (not in git).
+#
+#   scripts/install-github-token          # paste the token, then ctrl-d
+#   pbpaste | scripts/install-github-token
+#
+# token: fine-grained PAT (or github app token) for tinkerhub0/mothership only:
+#   Commit statuses: read+write · Pull requests: read+write
+#   Issues: read+write · Contents: read
+#
+# the token goes over stdin end to end: never argv, never a temp file.
+set -euo pipefail
+HOST="${MOTHERSHIP_HOST:-mothership@tharavad.xyz}"
+DEST="${TOKEN_DEST:-/var/lib/mothership/git-sync/github-token}"
+REPO="${NOTIFY_REPO:-tinkerhub0/mothership}"
+
+[[ -t 0 ]] && echo "paste the token, then ctrl-d:" >&2
+token="$(tr -d '[:space:]')"
+[[ -n "$token" ]] || { echo "empty token" >&2; exit 1; }
+
+# sanity: can it see the repo?
+code="$(printf 'header = "Authorization: Bearer %s"\n' "$token" \
+  | curl -sS -m 20 -o /dev/null -w '%{http_code}' -K - \
+    -H "Accept: application/vnd.github+json" "https://api.github.com/repos/$REPO")"
+[[ "$code" == 200 ]] || { echo "token check failed: GET /repos/$REPO → HTTP $code" >&2; exit 1; }
+
+echo "→ $HOST:$DEST"
+printf '%s\n' "$token" | ssh -o BatchMode=yes "$HOST" \
+  "sudo install -D -m 0600 -o root -g root /dev/stdin '$DEST' && sudo ls -l '$DEST'"
+echo "done. the next deploy reports to github; no rebuild needed."

@@ -1,0 +1,24 @@
+# every PR and push to main must evaluate — a file that breaks eval
+# (BOM, bad member name, failed assertion) used to merge silently and
+# stall the metal's git-sync for months.
+name: check
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  flake-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: cachix/install-nix-action@v31.11.3
+      - name: no BOM / CRLF in nix files
+        run: |
+          bad=$(git ls-files '*.nix' | xargs grep -lI $'^\xEF\xBB\xBF\|\r$' || true)
+          if [ -n "$bad" ]; then echo "strip BOM/CRLF from: $bad"; exit 1; fi
+      - name: eval both hosts (assertions included)
+        run: |
+          nix eval --raw .#nixosConfigurations.mothership.config.system.build.toplevel.drvPath
+          nix eval --raw .#nixosConfigurations.edge.config.system.build.toplevel.drvPath
+      - name: flake checks
+        run: nix flake check

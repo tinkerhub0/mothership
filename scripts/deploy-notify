@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+# deploy-notify — tell github how a git-sync deploy went. loud on failure.
+#
+#   deploy-notify <role> <success|failure> <new-sha> <old-sha> [rebuild-log]
+#
+# per deploy:
+#   commit status deploy/<role> on <new-sha>
+#   one comment per merged PR in old..new (member PRs get their ssh line)
+#   failure → open/update issue "deploy broken on <role>" (label deploy-broken)
+#   success → close that issue with "recovered at <sha>"
+#
+# dedupe (git-sync retries a failing commit every 2 min):
+#   notified-failure      sha whose failure was already announced
+#   notified-failure-prs  PRs already told about the current breakage
+#   both cleared on the next success.
+#
+# env:
+#   NOTIFY_TOKEN_FILE  github token (default $STATE_DIR/github-token). missing → skip
+#   NOTIFY_REPO        owner/repo (default tinkerhub0/mothership)
+#   NOTIFY_DOMAIN      member domain (default tharavad.xyz)
+#   NOTIFY_SRC         git checkout (default cwd)
+#   STATE_DIR          git-sync state dir
+#   NOTIFY_DRY_RUN=1   GETs run (token if present, else anonymous), writes are printed
+#
+# never fails the caller: every error is logged and the script exits 0.
+# the token never touches argv: curl reads the auth header from stdin (-K -).
+set -euo pipefail
+
+ROLE="${1:?role}"
+STATE="${2:?success|failure}"
+NEW="${3:?new sha}"
+OLD="${4:-}"
+LOG_FILE="${5:-}"
+
+STATE_DIR="${STATE_DIR:-${SYNC_STATE:-/var/lib/mothership/git-sync}}"
+TOKEN_FILE="${NOTIFY_TOKEN_FILE:-$STATE_DIR/github-token}"
+REPO="${NOTIFY_REPO:-tinkerhub0/mothership}"
+DOMAIN="${NOTIFY_DOMAIN:-tharavad.xyz}"
+SRC="${NOTIFY_SRC:-$PWD}"
+DRY="${NOTIFY_DRY_RUN:-0}"
+API="https://api.github.com"
+STATUS_URL="https://status.${DOMAIN}"
+SHORT="${NEW:0:7}"
+ISSUE_TITLE="deploy broken on ${ROLE}"
+LABEL="deploy-broken"
+
+log() { printf '%s [%s] notify: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$ROLE" "$*" >&2; }
+
+TOKEN=""
+if [[ -r "$TOKEN_FILE" ]]; then
+  TOKEN="$(tr -d '[:space:]' <"$TOKEN_FILE")"
+fi
+if [[ -z "$TOKEN" && "$DRY" != "1" ]]; then
+  log "no token ($TOKEN_FILE), skipping"
+  exit 0
+fi
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+RESP="$TMP/resp"
+
+# api METHOD PATH [json-body] → response in $RESP. 0 on 2xx.
+api() {
+  local method="$1" path="$2" body="${3:-}"
+  if [[ "$DRY" == "1" && "$method" != "GET" ]]; then
+    printf '\n--- DRY %s %s\n%s\n' "$method" "$path" "${body:-}" | sed 's/^/    /' >&2
+    printf '{}' >"$RESP"
+    return 0
+  fi
+  local auth=""
+  [[ -n "$TOKEN" ]] && auth="header = \"Authorization: Bearer ${TOKEN}\""
+  local args=(-sS -m 20 -X "$method" -o "$RESP" -w '%{http_code}'
+    -H "Accept: application/vnd.github+json"
+    -H "X-GitHub-Api-Version: 2022-11-28"
+    -K -)
+  if [[ -n "$body" ]]; then
+    printf '%s' "$body" >"$TMP/body"
+    args+=(-H "Content-Type: application/json" --data-binary "@$TMP/body")
+  fi
+  local code
+  code="$(printf '%s\n' "$auth" | curl "${args[@]}" "$API$path" 2>"$TMP/err")" || {
+    log "warn: $method $path: $(head -c 200 "$TMP/err")"
+    return 1
+  }
+  if [[ "$code" != 2* ]]; then
+    log "warn: $method $path → HTTP $code $(jq -r '.message? // empty' "$RESP" 2>/dev/null | head -c 200)"
+    return 1
+  fi
+  return 0
+}
+
+# retries of an already-announced failure: stay quiet, spend no api calls
+if [[ "$STATE" == "failure" && "$(cat "$STATE_DIR/notified-failure" 2>/dev/null || true)" == "$NEW" ]]; then
+  log "failure at $SHORT already announced; quiet retry"
+  exit 0
+fi
+
+# --- what deployed ------------------------------------------------------------
+
+# mainline commits only: each merge/squash on main maps to its PR. cap the fan-out.
+commits=()
+if [[ -n "$OLD" && "$OLD" != "$NEW" ]] && git -C "$SRC" cat-file -e "${OLD}^{commit}" 2>/dev/null; then
+  mapfile -t commits < <(git -C "$SRC" rev-list --first-parent --max-count=100 "${OLD}..${NEW}" 2>/dev/null || true)
+fi
+[[ ${#commits[@]} -eq 0 ]] && commits=("$NEW")
+
+declare -A pr_author=()
+prs=()
+for c in "${commits[@]}"; do
+  api GET "/repos/$REPO/commits/$c/pulls" || continue
+  while IFS=$'\t' read -r num author; do
+    [[ -z "$num" || -n "${pr_author[$num]:-}" ]] && continue
+    pr_author[$num]="$author"
+    prs+=("$num")
+  done < <(jq -r '.[]? | select(.merged_at != null) | "\(.number)\t\(.user.login)"' "$RESP" 2>/dev/null || true)
+done
+log "state=$STATE sha=$SHORT prs=${prs[*]:-none}"
+
+# member files a PR added or changed (not removed, not the template)
+member_files() {
+  api GET "/repos/$REPO/pulls/$1/files?per_page=100" || return 0
+  jq -r '.[]? | select(.status != "removed") | .filename' "$RESP" 2>/dev/null \
+    | grep -E '^user-vms/[a-z][a-z0-9-]*\.nix$' | grep -v '/template\.nix$' || true
+}
+
+# https urls from a member's publish list (exact: evaluated, not grepped)
+member_urls() {
+  local name="$1" f="$SRC/user-vms/$1.nix"
+  [[ -f "$f" ]] || return 0
+  nix eval --impure --json --expr "map (p: p.subdomain or \"$name\") ((import $f).publish or [ ])" 2>/dev/null \
+    | jq -r '.[]?' 2>/dev/null | sort -u | sed "s|.*|https://&.${DOMAIN}|" || true
+}
+
+comment() { # pr body
+  local body
+  body="$(jq -n --arg b "$2" '{body: $b}')"
+  api POST "/repos/$REPO/issues/$1/comments" "$body" && log "commented on #$1" || true
+}
+
+set_status() { # state description
+  local body
+  body="$(jq -n --arg s "$1" --arg d "$2" --arg u "$STATUS_URL" --arg c "deploy/$ROLE" \
+    '{state: $s, description: $d, target_url: $u, context: $c}')"
+  api POST "/repos/$REPO/statuses/$NEW" "$body" && log "status $1 on $SHORT" || true
+}
+
+open_issue_number() {
+  api GET "/repos/$REPO/issues?labels=$LABEL&state=open&per_page=50" || return 0
+  jq -r --arg t "$ISSUE_TITLE" '[.[]? | select(.title == $t and .pull_request == null)][0].number // empty' "$RESP" 2>/dev/null || true
+}
+
+# --- failure -------------------------------------------------------------------
+
+if [[ "$STATE" == "failure" ]]; then
+  excerpt="(no log)"
+  if [[ -n "$LOG_FILE" && -s "$LOG_FILE" ]]; then
+    # strip colour codes, keep the tail where nix puts the actual error
+    excerpt="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG_FILE" | tail -n 40 | cut -c1-300)"
+  fi
+  howto="git-sync retries every 2 min. watch it: \`ssh mothership@${DOMAIN}\` → \`journalctl -fu ${ROLE}-git-sync\`"
+
+  set_status failure "nixos-rebuild switch failed on $ROLE"
+
+  for pr in "${prs[@]}"; do
+    grep -qx "$pr" "$STATE_DIR/notified-failure-prs" 2>/dev/null && continue
+    comment "$pr" "❌ **deploy failed on ${ROLE}** at \`${SHORT}\`
+
+@${pr_author[$pr]} this PR is part of a deploy that didn't go through. it may not be your change; the log says which file broke.
+
+\`\`\`text
+${excerpt}
+\`\`\`
+
+${howto}"
+    [[ "$DRY" == "1" ]] || echo "$pr" >>"$STATE_DIR/notified-failure-prs"
+  done
+
+  pr_list="none found"
+  [[ ${#prs[@]} -gt 0 ]] && pr_list="$(printf '#%s ' "${prs[@]}")"
+  issue_body="**${ROLE}** failed to deploy \`${NEW}\` (last good: \`${OLD:-unknown}\`).
+
+PRs in this deploy: ${pr_list}
+
+\`\`\`text
+${excerpt}
+\`\`\`
+
+${howto}
+
+this issue closes itself on the next successful deploy."
+
+  num="$(open_issue_number)"
+  if [[ -n "$num" ]]; then
+    comment "$num" "$issue_body"
+  else
+    api POST "/repos/$REPO/labels" "$(jq -n --arg n "$LABEL" '{name: $n, color: "d73a4a", description: "git-sync could not deploy main"}')" || true
+    api POST "/repos/$REPO/issues" "$(jq -n --arg t "$ISSUE_TITLE" --arg b "$issue_body" --arg l "$LABEL" '{title: $t, body: $b, labels: [$l]}')" \
+      && log "opened issue: $ISSUE_TITLE" || true
+  fi
+
+  [[ "$DRY" == "1" ]] || echo "$NEW" >"$STATE_DIR/notified-failure"
+  exit 0
+fi
+
+# --- success -------------------------------------------------------------------
+
+set_status success "deployed to $ROLE"
+
+for pr in "${prs[@]}"; do
+  body="✅ **deployed to ${ROLE}** at \`${SHORT}\`"
+  members=()
+  mapfile -t members < <(member_files "$pr")
+  for f in "${members[@]}"; do
+    [[ -z "$f" ]] && continue
+    name="$(basename "$f" .nix)"
+    body+="
+
+@${pr_author[$pr]} \`${name}\` is live:
+
+\`\`\`bash
+ssh ${name}@${name}.${DOMAIN}
+\`\`\`"
+    mapfile -t urls < <(member_urls "$name")
+    for u in "${urls[@]}"; do
+      [[ -n "$u" ]] && body+="
+- ${u}"
+    done
+  done
+  comment "$pr" "$body"
+done
+
+num="$(open_issue_number)"
+if [[ -n "$num" ]]; then
+  comment "$num" "✅ recovered: **${ROLE}** deployed \`${NEW}\`."
+  api PATCH "/repos/$REPO/issues/$num" '{"state":"closed","state_reason":"completed"}' \
+    && log "closed issue #$num" || true
+fi
+
+if [[ "$DRY" != "1" ]]; then
+  rm -f "$STATE_DIR/notified-failure" "$STATE_DIR/notified-failure-prs"
+fi
+exit 0

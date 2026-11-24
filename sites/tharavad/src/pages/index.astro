@@ -5,69 +5,70 @@ import Base from "../layouts/Base.astro";
   <h1>tharavad</h1>
 
   <p>
-    <strong>Tharavad</strong> (also spelled Tharavadu) is a Malayalam word for
-    ancestral home, joint family, and root lineage: the traditional
-    multi-generational house and the extended family that shares it. That is
-    the model. Not a product login. A house with keys.
+    <strong>tharavad</strong> (tharavadu) is malayalam for the ancestral home.
+    the big old house where the whole extended family lives. that's the model.
+    not a product with a login page. a house with keys.
   </p>
 
-  <p>
-    We run a public machine so nerds can have a real Linux box: mess around,
-    deploy something small, break it on purpose, fix it, repeat. Membership is a
-    pull request. After review you get a NixOS microVM under your name, not a
-    shared account on someone else’s machine.
-  </p>
+  <h2>what</h2>
 
   <p>
-    What you get once you are in:
+    one server in a hackerspace in kerala. you open a pull request, someone
+    reads it, you get a linux machine with your name on it.
   </p>
 
   <ul>
-    <li>
-      <code>ssh you@you.tharavad.xyz</code> from anywhere with a normal key
-    </li>
-    <li>
-      optional public HTTPS: declare a port in git, serve on
-      <code>https://you.tharavad.xyz</code>
-    </li>
-    <li>your own guest; your mess stays yours</li>
+    <li><code>ssh you@you.tharavad.xyz</code> from anywhere</li>
+    <li>root on your own nixos vm. your mess stays yours</li>
+    <li>a port in git → <code>https://you.tharavad.xyz</code></li>
   </ul>
 
+  <p>no signup form. no credit card. no ticket. <a href="/join/">join</a>.</p>
+
+  <h2>why</h2>
+
   <p>
-    Why bother: a lot of people still wish they had a box at 13 (or later) and
-    never get past signup walls, credit cards, or the feeling that the useful
-    rooms closed when the forums did. We cannot reverse that. We can keep one
-    house open.
+    most people who wanted a box at 13 never got one. signup walls, cards,
+    "contact sales". the useful rooms closed when the forums did. we can't fix
+    that. we can keep one house open.
   </p>
 
   <p>
-    <strong>YES, THIS SITE IS <code>https://</code> NOW. WE HAD TO.</strong>
-    We ran cleartext on purpose for a while — see
-    <a href="/blog/on-http/">On HTTP</a> — as a quiet love letter to a simpler
-    web, not a sermon about padlocks. Then half the internet threw a tantrum
-    because they do not know how to open an <code>http://</code> link: browsers
-    scream, phones “upgrade” you into a dead end, and people paste the bare
-    domain and assume the house burned down. So we flipped Let's Encrypt on the
-    front door. Not a morality conversion. A truce with humans. Full
-    apology-shaped rant: <a href="/blog/back-to-https/">Back to HTTPS</a>. Your
-    shell still uses real keys either way.
+    renting teaches you someone's billing page. owning teaches you watts,
+    disks, packets, boot order. that stuff is true everywhere. and when you
+    can't buy more compute, you write better code.
   </p>
 
   <p>
-    A note from the courtyard: if <code>ssh</code> reaches the gate and then
-    sits there like it is thinking about its life, that is not a personal
-    failing. The gate is a small computer in Germany. The house has to phone
-    the gate, because we do not let the gate knock on the ancestral home. You
-    are in. The house is out back, pretending a dead keepalive is a lifestyle.
+    git is the guest list. your access is a file in a public repo. who's in,
+    who let them in, when, why: <code>git log</code>. no secret admin list. no
+    favours.
   </p>
 
   <p>
-    <a href="https://tinkerhub.org">TinkerHub</a> bought the iron. We frob the
-    bits, bring guests up, and share the cycles with the community. How to land
-    a shell is on <a href="/join">Join</a>. Longer story on
-    <a href="/about">About</a>. What we shipped:
-    <a href="/log/">Ship log</a>. Who is in the house:
-    <a href="/house/">The house</a>. Notes (rants) on
-    <a href="/blog/">Notes</a>. Stay cool.
+    break it. nothing in here is precious. the whole house builds from one repo,
+    so when it falls over we put it back and time how long that took. then we
+    make the number smaller.
+  </p>
+
+  <h2>how</h2>
+
+  <p>
+    a used dell r730xd. 88 threads, 62 GB, 151 W idle. one small vps in front
+    as the door. the space's firewall. all of it is one
+    <a href="https://nixos.org">nix</a> flake:
+    <a href="https://github.com/tinkerhub0/mothership">tinkerhub0/mothership</a>.
+    the <a href="https://github.com/tinkerhub0/mothership/tree/main/docs">docs</a>
+    are written for people who've never done this before.
+  </p>
+
+  <p>
+    <a href="https://tinkerhub.org">tinkerhub</a> bought the iron. we run it.
+  </p>
+
+  <p>
+    <a href="/join/">join</a> · <a href="/house/">who's here</a> ·
+    <a href="/log/">ship log</a> · <a href="/about/">longer story</a> ·
+    <a href="/blog/">notes</a>
   </p>
 </Base>

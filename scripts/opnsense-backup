@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# opnsense-backup — pull the firewall's config.xml over the api and store it
+# sops-encrypted as secrets/<fw>-config.sops.json. it holds password hashes
+# and private keys, so it never touches disk in plaintext. commit by hand.
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$repo_root"
+
+usage() {
+  cat <<'EOF'
+usage: scripts/opnsense-backup [--fw tharavadmathil]
+
+writes secrets/<fw>-config.sops.json when the config changed, then:
+  git add secrets/<fw>-config.sops.json && git commit
+restore: sops decrypt --input-type json --output-type binary \
+           secrets/<fw>-config.sops.json > config.xml, then
+System → Configuration → Backups → restore. delete config.xml after.
+EOF
+  exit 1
+}
+
+fw="tharavadmathil"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --fw) fw="${2:-}"; shift 2 ;;
+    -h|--help) usage ;;
+    *) echo "unknown arg: $1" >&2; usage ;;
+  esac
+done
+
+# shellcheck source=scripts/opnsense-env
+. "$repo_root/scripts/opnsense-env" "$fw"
+
+out="secrets/${fw}-config.sops.json"
+export SOPS_AGE_SSH_PRIVATE_KEY_FILE="${SOPS_AGE_SSH_PRIVATE_KEY_FILE:-$HOME/.ssh/id_ed25519}"
+
+# credentials via stdin config, never on the command line
+new="$(printf 'user = "%s:%s"\n' "$OPNSENSE_KEY" "$OPNSENSE_SECRET" | curl -sS --fail-with-body "${tls[@]}" -K - "$url/api/core/backup/download/this")"
+[[ "$new" == "<?xml"* ]] || { echo "not a config.xml: ${new:0:120}" >&2; exit 1; }
+
+# re-encrypting changes every byte; only write when the config itself changed
+if [[ -f "$out" ]] && [[ "$(sops decrypt --input-type json --output-type binary "$out")" == "$new" ]]; then
+  echo "unchanged: $out"
+  exit 0
+fi
+
+printf '%s' "$new" | sops encrypt --filename-override "$out" --input-type binary --output-type json /dev/stdin > "$out.tmp"
+mv "$out.tmp" "$out"
+echo "wrote $out ($(printf '%s' "$new" | wc -c | tr -d ' ') bytes of config.xml, encrypted)"
