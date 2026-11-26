@@ -144,7 +144,7 @@
   enable = true;
   domain = "chat.tharavad.xyz";
 };
-
+          
   networking.firewall.allowedTCPPorts = [
     22
     80 # ACME + redirect

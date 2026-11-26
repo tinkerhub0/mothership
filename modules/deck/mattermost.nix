@@ -16,22 +16,28 @@ in
     # 1. Enable Mattermost service
     services.mattermost = {
       enable = true;
-      # This must be the final public HTTPS address
       siteUrl = "https://chat.tharavad.xyz";
-      # Default port 8065, keep default unless there is a conflict
+      host = "0.0.0.0"; # Keep this so Mattermost accepts connections
+      port = 8065;
     };
 
-    # 2. Nginx reverse proxy subdomain
-    services.nginx.virtualHosts."chat.tharavad.xyz" = {
-      forceSSL = true;
-      # If Mothership already has a wildcard certificate for *.tharavad.xyz,
-      # change enableACME to useACMEHost = "tharavad.xyz";
-      enableACME = true;
+    # 2. CRITICAL: Open the firewall so the Edge server can reach us over WireGuard
+    networking.firewall.interfaces."wg-front".allowedTCPPorts = [ 8065 ];
 
+    # 3. Local router on Mothership: Catch WG traffic on 8065 and forward to Mattermost
+    services.nginx.virtualHosts."mattermost-wg-router" = {
+      listen = [
+        { addr = "10.99.0.2"; port = 8065; }
+      ];
       locations."/" = {
         proxyPass = "http://127.0.0.1:8065";
-        # Mattermost real-time messaging depends on WebSocket, must be enabled
         proxyWebsockets = true;
+        extraConfig = ''
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        '';
       };
     };
   };
