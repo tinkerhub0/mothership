@@ -61,6 +61,10 @@ For `chat.tharavad.xyz`, the edge handles HTTPS and sends the request over
 WireGuard directly to Mattermost on mothership. The edge also forwards the
 WebSocket connection that delivers new chat messages to your browser.
 
+Mattermost starts after the host's network startup step. It binds to the
+WireGuard address and retries if that address comes up later. To check
+whether the address is present, run `ip -br -4 addr show dev wg-front`.
+
 To check the route (addresses and ports from the configuration on 2026-11-27),
 run this on mothership first, then on the edge:
 
