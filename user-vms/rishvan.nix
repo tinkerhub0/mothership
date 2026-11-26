@@ -6,6 +6,8 @@
   ];
 
   publish = [
-    { port = 3000; }   # → https://rishvan.tharavad.xyz
+    { port = 3000; }                              # → https://rishvan.tharavad.xyz
+    { subdomain = "api-rishvan"; port = 8000; }   # → https://api-rishvan.tharavad.xyz (API)
+    { subdomain = "bot-rishvan"; port = 8001; }   # → https://bot-rishvan.tharavad.xyz (Discord bot)
   ];
 }
