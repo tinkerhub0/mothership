@@ -1,6 +1,6 @@
 # How traffic reaches your VM
 
-> **Source of truth:** `modules/mesh/*` · `modules/bastion.nix` · `modules/member-publish.nix` · `modules/microvms/default.nix` · `modules/deck/network.nix` · `hosts/edge/default.nix`
+> **Source of truth:** `modules/mesh/*` · `modules/bastion.nix` · `modules/member-publish.nix` · `modules/microvms/default.nix` · `modules/deck/network.nix` · `modules/deck/mattermost.nix` · `modules/mattermost-proxy.nix` · `hosts/edge/default.nix`
 
 New to these words? [Glossary](glossary.md).
 
@@ -54,6 +54,23 @@ without a web route, the edge returns "No website configured for this
 hostname" over HTTP. It rejects the HTTPS connection because it has no
 certificate for that name. It does not serve another member's site or the
 landa console. SSH access works independently of website publishing.
+
+## Shared chat
+
+For `chat.tharavad.xyz`, the edge handles HTTPS and sends the request over
+WireGuard directly to Mattermost on mothership. The edge also forwards the
+WebSocket connection that delivers new chat messages to your browser.
+
+To check the route (addresses and ports from the configuration on 2026-11-27),
+run this on mothership first, then on the edge:
+
+```bash
+curl -i --connect-timeout 3 --max-time 10 http://10.99.0.2:8065/api/v4/system/ping
+```
+
+A healthy server replies with HTTP 200 and a JSON status of `OK`. If it
+works on mothership alone, check the WireGuard connection between the hosts.
+If both succeed, check the chat website and the edge Nginx log.
 
 ## The mesh
 

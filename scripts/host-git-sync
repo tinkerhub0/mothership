@@ -135,7 +135,7 @@ is_edge_fabric() {
   case "$1" in
     hosts/edge/* | flake.nix | flake.lock | lib/*) return 0 ;;
     modules/base.nix | modules/admins.nix | modules/tools.nix) return 0 ;;
-    modules/bastion.nix | modules/member-publish.nix | modules/landing.nix) return 0 ;;
+    modules/bastion.nix | modules/member-publish.nix | modules/landing.nix | modules/mattermost-proxy.nix) return 0 ;;
     modules/mesh/* | modules/git-sync.nix) return 0 ;;
     sites/*) return 0 ;; # landing dist
     scripts/host-git-sync | scripts/mothership-git-sync | scripts/deploy-notify) return 0 ;;
