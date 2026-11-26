@@ -22,6 +22,7 @@
     ../../modules/git-sync.nix # main → edge (bastion keys, publish, landing)
     ../../modules/landa-proxy.nix # landa.tharavad.xyz → control plane API
     ../../modules/status-proxy.nix # status.tharavad.xyz → deck monitor
+    ../../modules/mattermost-proxy.nix # chat.tharavad.xyz
   ];
 
   networking.hostName = "edge";
@@ -137,6 +138,12 @@
     enable = true;
     domain = "status.tharavad.xyz";
   };
+  
+  # mattermost chat.tharavad.xyz
+  mothership.mattermostProxy = {
+  enable = true;
+  domain = "chat.tharavad.xyz";
+};
 
   networking.firewall.allowedTCPPorts = [
     22
