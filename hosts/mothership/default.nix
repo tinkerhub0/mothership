@@ -68,6 +68,7 @@ in
 
   # private bridge for loki/grafana/mattermost/vaultwarden
   mothership.deck.network.enable = true;
+  mothership.deck.mattermost.enable = true;
 
   # fleet monitoring on the host (native service, not a microVM)
   # public: https://status.tharavad.xyz via edge status-proxy

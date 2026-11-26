@@ -16,14 +16,11 @@ in
       forceSSL = true;
       enableACME = true;
       locations."/" = {
-        # Forward to the WireGuard IP of the Mothership, port 8065 (Mattermost default)
-        proxyPass = "http://10.99.0.2:8065"; 
+        proxyPass = "http://${config.mothership.mesh.frontDoor.homeTunnelIP}:8065";
+        recommendedProxySettings = true;
         proxyWebsockets = true;
         extraConfig = ''
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
+          proxy_read_timeout 300s;
         '';
       };
     };
