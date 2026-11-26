@@ -7,7 +7,6 @@
 let
   cfg = config.mothership.deck.mattermost;
   frontDoor = config.mothership.mesh.frontDoor;
-  tunnelUnit = "wireguard-${frontDoor.interface}.service";
 in
 {
   options.mothership.deck.mattermost = {
@@ -25,8 +24,8 @@ in
     networking.firewall.interfaces.${frontDoor.interface}.allowedTCPPorts = [ config.services.mattermost.port ];
 
     systemd.services.mattermost = {
-      requires = [ tunnelUnit ];
-      after = [ tunnelUnit ];
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
     };
   };
 }
