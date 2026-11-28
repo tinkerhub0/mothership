@@ -1,9 +1,9 @@
 {
   github = "Sabari-Vijayan";
   tier = "small";
-  enabled = false;
+  enabled = true;
   keys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPcZzOPDY9tlsrLT5Cr13jYN8dIDBB0FE7j+3BmSB34z vijayansabari06@gmail.com"
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINzMYKIwBnfqpmvRW3hZ8OLBe4eUb54LuC9iQsg7CuGn vijayansabari06@gmail.com"
   ];
   publish = [ { port = 5456; } ];
 }
