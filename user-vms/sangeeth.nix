@@ -5,7 +5,7 @@
 {
   github = "TheCyperpunk";
   tier = "large"; # Production testing environment for XMO messaging platform
-  enabled = true;
+  enabled = false;
   keys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK4GpidrPZuZGKBarF1pOx8XzmZiiou25SYluHsg3qOB sangeethkarunakaran@tharavad"
   ];
